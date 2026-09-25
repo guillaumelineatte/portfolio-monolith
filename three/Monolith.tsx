@@ -1,0 +1,271 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
+import gsap from "gsap";
+import { VS_STONE, FS_STONE, VS_PHOTO, FS_PHOTO } from "./shaders";
+import { U } from "./uniforms";
+import { sceneRefs } from "./sceneRefs";
+import { useSceneStore } from "@/lib/store";
+import { damp, dampAngle } from "@/lib/math";
+import { buildFractureGeometry } from "./fracture";
+import { registerStone, SPREAD_PREVIEW } from "./stoneCrack";
+import { createPlaceholderTexture } from "./placeholderTexture";
+
+// Debug: draws each fragment's index so I can see which ones block the photo.
+// Plain DOM nodes positioned by hand every frame. drei <Text> needs to fetch a font and ~28
+// <Html> hung the boot, so no drei here. Set to false when done.
+const DEBUG_FRAGMENT_LABELS = true;
+
+// x === z so the bound is round (capsule) instead of a slab. The raymarch only uses uHalf as
+// a rough bounding volume, so it didn't need changes.
+const RADIUS = 0.85;
+const LENGTH = 2.0;
+const THICKNESS = 0.2;
+const SEED_UNIFORM_SIZE = 32;
+export const STONE_HALF = new THREE.Vector3(RADIUS, LENGTH / 2 + RADIUS, RADIUS);
+
+// 2.4 rad puts fragment #21 on the back, away from every project camera angle (they stay
+// within ~60deg of front). Idle is a small sway around this, never a full turn.
+const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
+
+// #5 and #10 still end up in front of the photo at SPREAD_FULL, push them further.
+// Added to uSpread, not multiplied (a multiplier overshoots at SPREAD_FULL).
+// Don't use depthTest:false on the photo instead, it shows through the closed stone.
+const SPREAD_EXTRA: Record<number, number> = { 5: 1.6, 10: 1.1 };
+
+// Idle while closed: small yaw sway around BASE_TILT.y (never a full turn, another face
+// would end up in front) and a slow vertical bob.
+// The whole bob range has to stay in frame for every pose in lib/camera-math.ts, check both
+// ends when changing these.
+const IDLE_SWAY_AMPLITUDE = 0.12;
+const IDLE_SWAY_FREQ = 0.15;
+const IDLE_BOB_AMPLITUDE = 0.04;
+const IDLE_BOB_FREQ = 0.22;
+
+function seedsToVectorArray(seedsXY: Float32Array): THREE.Vector2[] {
+  const arr: THREE.Vector2[] = [];
+  for (let i = 0; i < SEED_UNIFORM_SIZE; i++) {
+    const x = seedsXY[i * 2] ?? 0;
+    const y = seedsXY[i * 2 + 1] ?? 0;
+    arr.push(new THREE.Vector2(x, y));
+  }
+  return arr;
+}
+
+const labelScratch = new THREE.Vector3();
+
+export function Monolith() {
+  const ref = useRef<THREE.Mesh>(null);
+  const photoRef = useRef<THREE.Mesh>(null);
+  const labelEls = useRef<HTMLDivElement[]>([]);
+  const low = useSceneStore((s) => s.low);
+  const booted = useSceneStore((s) => s.booted);
+  const reducedMotion = useSceneStore((s) => s.reducedMotion);
+  const introFired = useRef(false);
+
+  const fractureCount = low ? 14 : 28;
+  const stepsMax = low ? 10 : 24;
+
+  const fracture = useMemo(
+    () =>
+      buildFractureGeometry({
+        radius: RADIUS,
+        length: LENGTH,
+        count: fractureCount,
+        seed: 1337,
+        thickness: THICKNESS,
+        spreadExtra: SPREAD_EXTRA,
+      }),
+    [fractureCount]
+  );
+
+  const material = useMemo(() => {
+    const uniforms = Object.assign(
+      {
+        uCamObj: { value: new THREE.Vector3() },
+        uLightObj: { value: new THREE.Vector3() },
+        uHalf: { value: STONE_HALF },
+        uGain: { value: 1.55 },
+        uSteps: { value: stepsMax },
+        uOpen: { value: 0 },
+        uCrack: { value: 0 },
+        uDrift: { value: 0 },
+        uSpread: { value: SPREAD_PREVIEW },
+        uSeeds: { value: seedsToVectorArray(fracture.seedsXY) },
+        uSeedCount: { value: fracture.count },
+      },
+      U
+    );
+    return new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: VS_STONE,
+      fragmentShader: FS_STONE,
+      defines: { STEPS: stepsMax },
+      // ~28 hand-built prisms, one bad winding would leave a hole. DoubleSide is cheap here.
+      side: THREE.DoubleSide,
+    });
+  }, [fracture, stepsMax]);
+
+  const photoMaterial = useMemo(() => {
+    const placeholder = createPlaceholderTexture();
+    const uniforms = Object.assign(
+      {
+        uTexA: { value: placeholder as THREE.Texture },
+        uTexB: { value: placeholder as THREE.Texture },
+        uMix: { value: 0 },
+        uReveal: { value: 0 },
+      },
+      U
+    );
+    return new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: VS_PHOTO,
+      fragmentShader: FS_PHOTO,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+  }, []);
+
+  useEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    mesh.updateMatrixWorld(true);
+    sceneRefs.stoneMesh = mesh;
+    sceneRefs.stoneInv = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+    sceneRefs.stoneUniforms = {
+      uCamObj: material.uniforms.uCamObj as { value: THREE.Vector3 },
+      uLightObj: material.uniforms.uLightObj as { value: THREE.Vector3 },
+    };
+    sceneRefs.photoMesh = photoRef.current;
+    registerStone(
+      {
+        uOpen: material.uniforms.uOpen as { value: number },
+        uCrack: material.uniforms.uCrack as { value: number },
+        uDrift: material.uniforms.uDrift as { value: number },
+        uSpread: material.uniforms.uSpread as { value: number },
+      },
+      {
+        uTexA: photoMaterial.uniforms.uTexA as { value: THREE.Texture },
+        uTexB: photoMaterial.uniforms.uTexB as { value: THREE.Texture },
+        uMix: photoMaterial.uniforms.uMix as { value: number },
+        uReveal: photoMaterial.uniforms.uReveal as { value: number },
+      },
+      photoRef.current
+    );
+    return () => {
+      sceneRefs.stoneMesh = null;
+      sceneRefs.stoneInv = null;
+      sceneRefs.stoneUniforms = null;
+      sceneRefs.photoMesh = null;
+      registerStone(null, null, null);
+    };
+  }, [material, photoMaterial]);
+
+  // Scale in with the camera intro instead of just fading in.
+  useEffect(() => {
+    if (!booted || introFired.current) return;
+    introFired.current = true;
+    const mesh = ref.current;
+    if (!mesh) return;
+    if (reducedMotion) {
+      mesh.scale.set(1, 1, 1);
+      return;
+    }
+    mesh.scale.set(0.3, 0.3, 0.3);
+    gsap.to(mesh.scale, { x: 1, y: 1, z: 1, duration: 2.6, delay: 0.3, ease: "expo.out" });
+  }, [booted, reducedMotion]);
+
+  // Debug labels (see DEBUG_FRAGMENT_LABELS), plain DOM, created once.
+  useEffect(() => {
+    if (!DEBUG_FRAGMENT_LABELS) return;
+    const container = document.createElement("div");
+    container.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;";
+    document.body.appendChild(container);
+    labelEls.current = fracture.cells.map((_cell, i) => {
+      const el = document.createElement("div");
+      el.textContent = String(i);
+      el.style.cssText =
+        "position:absolute;left:0;top:0;color:#ff3b30;font:700 14px/1 sans-serif;" +
+        "text-shadow:0 0 3px #000,0 0 6px #000;transform:translate(-50%,-50%);";
+      container.appendChild(el);
+      return el;
+    });
+    return () => {
+      container.remove();
+      labelEls.current = [];
+    };
+  }, [fracture]);
+
+  // Priority 2, between CameraRig (1) and LightRig (3): idle motion and stoneInv have to be
+  // updated before LightRig reads them. Also lowers uSteps while opening.
+  useFrame((state, delta) => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const reduced = useSceneStore.getState().reducedMotion;
+    const openAmt = material.uniforms.uOpen.value as number;
+    const t = U.uTime.value as number;
+    if (openAmt < 0.01) {
+      mesh.rotation.y = reduced ? BASE_TILT.y : BASE_TILT.y + Math.sin(t * IDLE_SWAY_FREQ) * IDLE_SWAY_AMPLITUDE;
+      mesh.position.y = reduced ? STONE_HALF.y : STONE_HALF.y + Math.sin(t * IDLE_BOB_FREQ + 1.7) * IDLE_BOB_AMPLITUDE;
+    } else {
+      // Snap back to the base angle/height so every open looks the same.
+      mesh.rotation.y = reduced ? BASE_TILT.y : dampAngle(mesh.rotation.y, BASE_TILT.y, 6, delta);
+      mesh.position.y = reduced ? STONE_HALF.y : damp(mesh.position.y, STONE_HALF.y, 6, delta);
+    }
+    mesh.updateMatrixWorld();
+    if (!sceneRefs.stoneInv) sceneRefs.stoneInv = new THREE.Matrix4();
+    sceneRefs.stoneInv.copy(mesh.matrixWorld).invert();
+
+    (material.uniforms.uSteps as { value: number }).value = openAmt > 0.02 ? Math.round(stepsMax * 0.6) : stepsMax;
+
+    // Debug: same displacement as stone.vert.glsl for each fragment pivot, projected to screen
+    // by hand to place the label.
+    if (DEBUG_FRAGMENT_LABELS) {
+      const spread = material.uniforms.uSpread.value as number;
+      const drift = material.uniforms.uDrift.value as number;
+      const time = U.uTime.value as number;
+      fracture.cells.forEach((cell, i) => {
+        const el = labelEls.current[i];
+        if (!el) return;
+        const localT = Math.min(1, Math.max(0, (openAmt - cell.delay) / Math.max(1e-4, 1 - cell.delay)));
+        const eased = 1 - Math.pow(2, -10 * localT);
+        const driftPhase = cell.delay * 41 + time * 0.6;
+        const driftAmt = Math.sin(driftPhase) * 0.012 * drift * eased;
+        labelScratch
+          .copy(cell.outDir)
+          .multiplyScalar((spread + cell.spreadExtra) * eased + driftAmt)
+          .add(cell.pivot);
+        labelScratch.applyMatrix4(mesh.matrixWorld);
+        labelScratch.project(state.camera);
+        if (labelScratch.z > 1) {
+          el.style.display = "none";
+          return;
+        }
+        el.style.display = "block";
+        const x = (labelScratch.x * 0.5 + 0.5) * state.size.width;
+        const y = (1 - (labelScratch.y * 0.5 + 0.5)) * state.size.height;
+        el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+      });
+    }
+  }, 2);
+
+  return (
+    <>
+      <mesh
+        ref={ref}
+        position={[0, STONE_HALF.y, 0]}
+        rotation={[BASE_TILT.x, BASE_TILT.y, BASE_TILT.z]}
+        material={material}
+        geometry={fracture.geometry}
+      />
+      {/* Sibling of the stone, not a child, so it always faces the camera. LightRig billboards
+          it every frame (sceneRefs.photoMesh). */}
+      <mesh ref={photoRef} position={[0, STONE_HALF.y, 0]} material={photoMaterial} renderOrder={1}>
+        <planeGeometry args={[1.0, 1.25]} />
+      </mesh>
+    </>
+  );
+}

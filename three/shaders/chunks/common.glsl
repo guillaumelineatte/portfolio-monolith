@@ -1,0 +1,7 @@
+uniform float uTime;
+uniform vec3 uLightColor;
+uniform float uIntensity;
+uniform vec3 uSunDir;
+uniform vec3 uCamPos;
+uniform float uMist;
+uniform vec3 uLightDir;

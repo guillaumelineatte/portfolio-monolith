@@ -1,0 +1,1203 @@
+<!doctype html>
+<html lang="en" class="is-loading">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Guillaume — Interactive developer</title>
+<meta name="description" content="Guillaume, independent interactive developer. Selected work and contact.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,200..500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fg:#EDEAE4;
+  --fg-soft:rgba(237,234,228,.56);
+  --bg:#09080b;
+  --dusk:#2a1a2b;
+  --ember:#c9764f;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --pad:clamp(1.25rem,3.1vw,3rem);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+/* The scene is always dusk: both themes share the same tokens on purpose */
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --fg:#EDEAE4; --bg:#09080b; } }
+:root[data-theme="dark"]{ --fg:#EDEAE4; --bg:#09080b; }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+.lenis.lenis-stopped{overflow:hidden}
+html.is-loading,html.is-loading body{overflow:hidden}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font-family:"Inter","Inter Display","Neue Montreal","Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-weight:300;font-optical-sizing:auto;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;overflow-x:hidden;
+}
+::selection{background:rgba(237,234,228,.85);color:#1a1216}
+.no-gl body{background:linear-gradient(to top,#b86c4f 0%,#5a2f43 26%,#1d1528 58%,#07080e 100%) fixed}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+.no-gl #gl{display:none}
+a{color:inherit;text-decoration:none}
+a:focus-visible,button:focus-visible{outline:none;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.14em}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* line masks */
+.line{display:block;overflow:hidden;padding:0 .1em .14em 0;margin:0 -.1em -.14em 0}
+.line-i{display:block;white-space:nowrap;will-change:transform}
+
+/* loader */
+#loader{
+  position:fixed;inset:0;z-index:50;background:var(--bg);
+  display:flex;align-items:flex-end;
+  padding:calc(var(--pad) + env(safe-area-inset-top,0px)) calc(var(--pad) + env(safe-area-inset-right,0px)) calc(var(--pad) + env(safe-area-inset-bottom,0px)) calc(var(--pad) + env(safe-area-inset-left,0px));
+}
+.ld{display:flex;align-items:flex-start;font-weight:200;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums;font-variation-settings:"opsz" 32}
+.ld .line{display:inline-block}
+#ldNum{font-size:clamp(3.5rem,11vw,10rem)}
+#ldPct{font-size:clamp(1rem,2.2vw,1.8rem);letter-spacing:0;margin-left:.35em;margin-top:.5em}
+
+/* header */
+.hd{
+  position:fixed;top:0;left:0;right:0;z-index:10;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  padding:calc(var(--pad) + env(safe-area-inset-top,0px)) calc(var(--pad) + env(safe-area-inset-right,0px)) 0 calc(var(--pad) + env(safe-area-inset-left,0px));
+  font-size:clamp(.92rem,1vw,1.05rem);letter-spacing:-.01em;font-weight:400;pointer-events:none;
+}
+.hd a{pointer-events:auto;transition:opacity .9s var(--ease)}
+.hd a:hover{opacity:.6}
+html.is-loading .hd,html.is-loading #app{visibility:hidden}
+
+#app{position:relative;z-index:1}
+.view:focus{outline:none}
+
+/* home */
+.home{padding:34vh calc(var(--pad) + env(safe-area-inset-right,0px)) 32vh calc(var(--pad) + env(safe-area-inset-left,0px))}
+.plist{list-style:none;margin:0;padding:0}
+.plist li{display:block}
+.p{
+  display:inline-flex;align-items:flex-start;gap:clamp(.5rem,1.1vw,1.2rem);
+  padding:.05em 0;transition:opacity 1.2s var(--ease);
+}
+.p-num{
+  font-size:clamp(.68rem,.78vw,.85rem);font-weight:200;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;min-width:1.7em;padding-top:clamp(.45rem,1.35vw,1.5rem);
+}
+.p-title{
+  font-size:clamp(2.6rem,7.1vw,8.6rem);line-height:.97;letter-spacing:-.047em;font-weight:300;
+  font-variation-settings:"opsz" 32;
+}
+.plist.is-hover .p{opacity:.14}
+.plist.is-hover .p.is-active{opacity:1}
+
+/* about */
+.about{padding:30vh calc(var(--pad) + env(safe-area-inset-right,0px)) 22vh calc(var(--pad) + env(safe-area-inset-left,0px));max-width:52rem}
+.bio{margin:0 0 clamp(3.5rem,10vh,7rem);font-size:clamp(1.45rem,2.45vw,2.45rem);line-height:1.17;letter-spacing:-.028em;font-variation-settings:"opsz" 32;max-width:21em}
+.awards{list-style:none;margin:0 0 clamp(3.5rem,10vh,7rem);padding:0;font-size:clamp(.95rem,1.05vw,1.12rem);letter-spacing:-.01em}
+.awards li{display:grid;grid-template-columns:4.2em 1fr;padding:.32em 0}
+.aw-q{font-weight:200;font-variant-numeric:tabular-nums}
+.copy{appearance:none;background:none;border:0;padding:0;margin:0;color:var(--fg);font:inherit;font-weight:400;font-size:clamp(1rem,1.2vw,1.25rem);letter-spacing:-.01em;cursor:pointer}
+.copy-mask{display:inline-grid;overflow:hidden;vertical-align:top;padding-bottom:.1em;margin-bottom:-.1em}
+.copy-mask>span{grid-area:1/1;white-space:nowrap}
+.copy .ch{display:inline-block;white-space:pre}
+.copy-b{user-select:text}
+
+/* project */
+.project{padding:26vh calc(var(--pad) + env(safe-area-inset-right,0px)) 20vh calc(var(--pad) + env(safe-area-inset-left,0px))}
+.pj-num{display:block;font-size:clamp(.72rem,.8vw,.86rem);font-weight:200;font-variant-numeric:tabular-nums;margin-bottom:1.3rem}
+.pj-title{margin:0 0 clamp(2.5rem,8vh,5.5rem);font-weight:300;font-size:clamp(3rem,9.2vw,10.5rem);line-height:.95;letter-spacing:-.052em;font-variation-settings:"opsz" 32;max-width:9.5em}
+.pj-grid{display:grid;grid-template-columns:minmax(9rem,16rem) minmax(0,33rem);gap:clamp(2rem,6vw,7rem);margin-bottom:clamp(5rem,16vh,11rem)}
+.pj-meta{margin:0;display:grid;gap:1.15rem;align-content:start;font-size:clamp(.88rem,.95vw,1rem)}
+.pj-meta dt{font-size:.78em;color:var(--fg-soft);margin-bottom:.2rem}
+.pj-meta dd{margin:0}
+.pj-desc{margin:0;font-size:clamp(1.08rem,1.38vw,1.4rem);line-height:1.42;letter-spacing:-.012em;max-width:31em}
+.pj-desc .line-i{white-space:nowrap}
+.pj-visual{width:min(64vw,1000px);aspect-ratio:16/10;margin:0 0 clamp(6rem,20vh,14rem) auto}
+.pj-visual img{display:block;width:100%;height:100%;object-fit:cover}
+.pj-next{display:inline-block}
+.pj-next-label{display:block;font-size:clamp(.78rem,.85vw,.9rem);color:var(--fg-soft);margin-bottom:.9rem}
+.pj-next-title{display:block;font-size:clamp(2.4rem,6.6vw,7.4rem);line-height:.97;letter-spacing:-.047em;font-variation-settings:"opsz" 32}
+
+@media (max-width:767px){
+  .home{padding-top:26vh;padding-bottom:26vh}
+  .p{display:flex;width:100%}
+  .p-title{font-size:clamp(2.3rem,12.4vw,4.6rem)}
+  .plist.m .p{opacity:.3}
+  .plist.m .p.is-active{opacity:1}
+  .pj-grid{grid-template-columns:1fr}
+  .pj-visual{width:100%}
+  .about{padding-top:24vh}
+}
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<div id="loader" aria-hidden="true">
+  <div class="ld"><span class="line"><span class="line-i" id="ldNum">0</span></span><span class="line"><span class="line-i" id="ldPct">%</span></span></div>
+</div>
+
+<header class="hd">
+  <a class="hd-name" href="#/"><span class="line"><span class="line-i" id="nameLabel">Guillaume</span></span></a>
+  <a class="hd-about" href="#/about"><span class="line"><span class="line-i" id="aboutLabel">About</span></span></a>
+</header>
+
+<main id="app"></main>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ================================================================
+   CONTENT — replace with your own projects, awards and email
+   ================================================================ */
+const CONFIG = {
+  name: 'Guillaume',
+  role: 'Interactive developer',
+  email: 'hello@guillaume.dev',
+  bio: "I'm Guillaume, an independent developer building interactive websites for studios, brands and cultural institutions. I care about what people feel before they notice it: light, rhythm, the weight of a transition. Based in France, working everywhere.",
+  awards: [
+    [15, 'Awwwards Honorable Mention'],
+    [6,  'Awwwards Site of the Day'],
+    [4,  'Awwwards Developer Award'],
+    [3,  'FWA of the Day'],
+    [2,  'CSS Design Awards Website of the Day'],
+    [1,  'Webby Awards Nominee']
+  ],
+  homeColor: '#F4B27C',
+  aboutColor: '#E9A3A8',
+  projects: [
+    { slug:'ostrea', title:'Ostrea', year:'2025', role:'Creative development, WebGL', client:'Maison Ostrea', color:'#F2A65A', visual:'waves',
+      text:'An online shop for an oyster farm on the Breton coast, built around a tide that rises and falls as you scroll. Each product sits in the light of the hour at which the page is opened.' },
+    { slug:'nocturne', title:'Nocturne', year:'2025', role:'Interactive direction', client:'Festival Nocturne', color:'#E8839A', visual:'orb',
+      text:'The digital home of a light festival staged in disused industrial sites. Visitors sketch their own installation in the browser before walking into the real one.' },
+    { slug:'atlas-des-vents', title:'Atlas des vents', year:'2024', role:'Data visualisation, WebGL', client:'Atelier Cartographique', color:'#9DB8E8', visual:'rings',
+      text:'A living map of the winds over Europe, redrawn every hour from open meteorological data. Currents are rendered as long ink strokes rather than arrows, so the weather reads like a drawing.' },
+    { slug:'maison-verlaine', title:'Maison Verlaine', year:'2024', role:'Front-end, motion', client:'Maison Verlaine, Paris', color:'#F0B6A0', visual:'arches',
+      text:'A fragrance house that wanted its website to feel like opening a drawer. Slow transitions, paper textures and a single product at a time.' },
+    { slug:'carriere', title:'Carrière', year:'2024', role:'Creative development', client:'Atelier Carrière Architectes', color:'#E6B36E', visual:'strata',
+      text:'Portfolio for an architecture practice working with raw stone. Each building is introduced by a section drawing that extrudes into volume as you read.' },
+    { slug:'sillage', title:'Sillage', year:'2023', role:'WebGL, configurator', client:'Chantier Sillage', color:'#7FA6D9', visual:'grid',
+      text:'A configurator for a small wooden sailboat yard. The hull answers wind and swell in real time while you choose its finish.' },
+    { slug:'ferrum', title:'Ferrum', year:'2023', role:'Creative development', client:'Fonderie Ferrum', color:'#E8764A', visual:'orb',
+      text:'An archive of cast bronze from an art foundry, lit as if by the pour itself. Molten metal shaders, built to run smoothly on a phone.' },
+    { slug:'opale', title:'Opale', year:'2023', role:'Product design, front-end', client:'Opale', color:'#B9A6E0', visual:'rings',
+      text:'A breathing companion whose whole interface follows the rhythm of a single slow gradient. No streaks, no scores, no notifications.' },
+    { slug:'cendres', title:'Cendres', year:'2022', role:'Development', client:'Galerie Cendres', color:'#D9A58F', visual:'arches',
+      text:'An online gallery for contemporary ceramics where every piece can be turned under a raking light. Photogrammetry compressed to load in under two seconds.' },
+    { slug:'lueur-boreale', title:'Lueur boréale', year:'2022', role:'WebGL, installation', client:'Observatoire du Nord', color:'#8FCBD0', visual:'waves',
+      text:'An aurora shown on a planetarium dome and in the browser from the same code. The sky follows the solar wind recorded the night before.' },
+    { slug:'tessiture', title:'Tessiture', year:'2022', role:'Creative development, audio', client:'Tessiture Records', color:'#D98BB8', visual:'grid',
+      text:'A record label where each release has a surface you can play with the cursor. The shaders listen to the actual stems of every track.' },
+    { slug:'albatre', title:'Albâtre', year:'2026', role:'Research', client:'Personal study', color:'#F3D9B8', visual:'strata',
+      text:'A long-running study of translucent materials in real time: stone, wax, paper, skin. The monolith behind this page is its latest iteration.' }
+  ]
+};
+const P = CONFIG.projects;
+
+/* ================================================================
+   Utilities
+   ================================================================ */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const pad = n => String(n).padStart(2, '0');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+const damp = (a, b, l, dt) => a + (b - a) * (1 - Math.exp(-l * dt));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+const isNarrow = () => innerWidth < 768;
+const LOW = isNarrow() || coarse;
+const canHover = () => matchMedia('(hover: hover) and (pointer: fine)').matches && !isNarrow();
+const EO = 'expo.out';
+
+const S = {
+  route: null, view: null, busy: false, pending: null, started: false,
+  mouse: { x: innerWidth * .5, y: innerHeight * .5, nx: 0, ny: 0 },
+  cam: { pos: { x: 0, y: 1.4, z: 16 }, target: { x: 0, y: 2.1, z: 0 } },
+  scrollP: 0, lastSy: 0, scrollVel: 0, hoverTimer: null, mActive: -1, observer: null,
+  img: { mode: 'none', el: null, idx: -1, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, w: 300, h: 375, mixTween: null }
+};
+let gl = null, lenis = null;
+const visuals = [];
+
+/* ================================================================
+   Project key visuals (generated — swap for real screenshots)
+   ================================================================ */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const mixRgb = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a === undefined ? 1 : a) + ')';
+
+function drawVisual(p, i){
+  const W = 480, H = 600;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const R = mulberry32(1337 + i * 7919);
+  const base = hexRgb(p.color), ink = [9, 8, 11], white = [246, 242, 235];
+  const dark = mixRgb(base, ink, .86), mid = mixRgb(base, ink, .56), lite = mixRgb(base, white, .42);
+  let g = x.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, rgba(dark)); g.addColorStop(1, rgba(mid));
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.lineWidth = 1;
+  switch (p.visual){
+    case 'waves': {
+      const n = 54;
+      for (let k = 0; k < n; k++){
+        const t = k / (n - 1), y0 = 90 + t * 440, amp = 6 + 24 * Math.sin(t * Math.PI), ph = R() * 6.28, fr = .011 + R() * .006;
+        x.beginPath();
+        for (let X = 0; X <= W; X += 6){
+          const y = y0 + Math.sin(X * fr + ph) * amp * Math.sin(X / W * Math.PI);
+          if (X === 0) x.moveTo(X, y); else x.lineTo(X, y);
+        }
+        x.strokeStyle = rgba(mixRgb(base, white, t * .5), .14 + .56 * t); x.stroke();
+      }
+      break;
+    }
+    case 'orb': {
+      const cx = W * (.4 + R() * .2), cy = H * .5, r = 145 + R() * 30;
+      const halo = x.createRadialGradient(cx, cy, r * .7, cx, cy, r * 2.3);
+      halo.addColorStop(0, rgba(base, .28)); halo.addColorStop(1, rgba(base, 0));
+      x.fillStyle = halo; x.fillRect(0, 0, W, H);
+      const rg = x.createRadialGradient(cx, cy - r * .35, r * .1, cx, cy, r);
+      rg.addColorStop(0, rgba(lite)); rg.addColorStop(.6, rgba(base)); rg.addColorStop(1, rgba(mid, .2));
+      x.fillStyle = rg; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
+      x.fillStyle = rgba(dark, .92); x.fillRect(0, H * .72, W, H * .28);
+      x.fillStyle = rgba(lite, .55); x.fillRect(0, Math.round(H * .72), W, 1);
+      break;
+    }
+    case 'rings': {
+      const cx = W * .5, cy = H * .46;
+      for (let k = 0; k < 28; k++){
+        const r = 12 + k * k * .55;
+        x.beginPath(); x.ellipse(cx + (R() - .5) * 6, cy, r, r * .92, 0, 0, Math.PI * 2);
+        x.strokeStyle = rgba(mixRgb(lite, base, k / 28), .72 - k / 28 * .6); x.stroke();
+      }
+      const rg = x.createRadialGradient(cx, cy, 0, cx, cy, 80);
+      rg.addColorStop(0, rgba(lite, .9)); rg.addColorStop(1, rgba(base, 0));
+      x.fillStyle = rg; x.fillRect(0, 0, W, H);
+      break;
+    }
+    case 'arches': {
+      const n = 6, floor = H - 70;
+      for (let k = n - 1; k >= 0; k--){
+        const w = 90 + k * 52, h = 200 + k * 56, x0 = (W - w) / 2, y0 = floor - h, t = k / (n - 1);
+        x.beginPath(); x.moveTo(x0, floor); x.lineTo(x0, y0 + w / 2);
+        x.arc(W / 2, y0 + w / 2, w / 2, Math.PI, 0); x.lineTo(x0 + w, floor); x.closePath();
+        const gg = x.createLinearGradient(0, y0, 0, floor);
+        gg.addColorStop(0, rgba(mixRgb(lite, base, t))); gg.addColorStop(1, rgba(mixRgb(base, dark, t * .8 + .2)));
+        x.fillStyle = gg; x.fill();
+      }
+      x.fillStyle = rgba(dark); x.fillRect(0, floor, W, 70);
+      break;
+    }
+    case 'strata': {
+      let y = 30;
+      while (y < H + 40){
+        const h = 14 + R() * 64, tone = R(), col = tone < .33 ? lite : (tone < .66 ? base : mid);
+        x.beginPath(); x.moveTo(0, y);
+        for (let X = 0; X <= W; X += 12) x.lineTo(X, y + Math.sin(X * .013 + y * .02) * 6);
+        x.lineTo(W, y + h + 10); x.lineTo(0, y + h + 10); x.closePath();
+        x.fillStyle = rgba(col, .32 + R() * .5); x.fill();
+        y += h;
+      }
+      break;
+    }
+    default: { // grid
+      x.strokeStyle = rgba(lite, .09);
+      for (let X = 0; X <= W; X += 24){ x.beginPath(); x.moveTo(X + .5, 0); x.lineTo(X + .5, H); x.stroke(); }
+      for (let Y = 0; Y <= H; Y += 24){ x.beginPath(); x.moveTo(0, Y + .5); x.lineTo(W, Y + .5); x.stroke(); }
+      const bx = 48 + Math.floor(R() * 4) * 24, by = 96 + Math.floor(R() * 5) * 24;
+      const bw = 24 * (6 + Math.floor(R() * 4)), bh = 24 * (8 + Math.floor(R() * 5));
+      const gg = x.createLinearGradient(bx, by, bx + bw, by + bh);
+      gg.addColorStop(0, rgba(lite)); gg.addColorStop(1, rgba(base));
+      x.fillStyle = gg; x.fillRect(bx, by, bw, bh);
+      for (let k = 0; k < 5; k++){ x.fillStyle = rgba(lite, .45 + R() * .4); x.fillRect(24 * Math.floor(R() * 19), 24 * Math.floor(R() * 24), 24, 24); }
+    }
+  }
+  const v = x.createRadialGradient(W / 2, H / 2, H * .25, W / 2, H / 2, H * .78);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.38)');
+  x.fillStyle = v; x.fillRect(0, 0, W, H);
+  return c;
+}
+
+/* ================================================================
+   GLSL
+   ================================================================ */
+const GLSL_COMMON = `
+uniform float uTime; uniform vec3 uLightColor; uniform float uIntensity;
+uniform vec3 uSunDir; uniform vec3 uCamPos; uniform float uMist; uniform vec3 uLightDir;
+`;
+const GLSL_NOISE = `
+vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}
+vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+float snoise(vec3 v){
+  const vec2 C=vec2(1.0/6.0,1.0/3.0);
+  const vec4 D=vec4(0.0,0.5,1.0,2.0);
+  vec3 i=floor(v+dot(v,C.yyy));
+  vec3 x0=v-i+dot(i,C.xxx);
+  vec3 g=step(x0.yzx,x0.xyz);
+  vec3 l=1.0-g;
+  vec3 i1=min(g.xyz,l.zxy);
+  vec3 i2=max(g.xyz,l.zxy);
+  vec3 x1=x0-i1+C.xxx;
+  vec3 x2=x0-i2+C.yyy;
+  vec3 x3=x0-D.yyy;
+  i=mod289(i);
+  vec4 p=permute(permute(permute(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
+  float n_=0.142857142857;
+  vec3 ns=n_*D.wyz-D.xzx;
+  vec4 j=p-49.0*floor(p*ns.z*ns.z);
+  vec4 x_=floor(j*ns.z);
+  vec4 y_=floor(j-7.0*x_);
+  vec4 x=x_*ns.x+ns.yyyy;
+  vec4 y=y_*ns.x+ns.yyyy;
+  vec4 h=1.0-abs(x)-abs(y);
+  vec4 b0=vec4(x.xy,y.xy);
+  vec4 b1=vec4(x.zw,y.zw);
+  vec4 s0=floor(b0)*2.0+1.0;
+  vec4 s1=floor(b1)*2.0+1.0;
+  vec4 sh=-step(h,vec4(0.0));
+  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;
+  vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+  vec3 p0=vec3(a0.xy,h.x);
+  vec3 p1=vec3(a0.zw,h.y);
+  vec3 p2=vec3(a1.xy,h.z);
+  vec3 p3=vec3(a1.zw,h.w);
+  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);
+  m=m*m;
+  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+}
+float hash12(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+`;
+const GLSL_SKY = `
+vec3 skyColor(vec3 d){
+  float hh = max(d.y, 0.0);
+  vec3 zenith = vec3(0.012, 0.016, 0.045);
+  vec3 upper  = vec3(0.050, 0.045, 0.110);
+  vec3 lowsky = vec3(0.300, 0.150, 0.190);
+  vec3 hor    = vec3(0.780, 0.420, 0.280);
+  vec3 c = mix(hor, lowsky, smoothstep(0.0, 0.07, hh));
+  c = mix(c, upper, smoothstep(0.05, 0.32, hh));
+  c = mix(c, zenith, smoothstep(0.30, 0.95, hh));
+  vec2 dx = normalize(d.xz + vec2(1e-5));
+  vec2 sx = normalize(uSunDir.xz + vec2(1e-5));
+  float side = dot(dx, sx) * 0.5 + 0.5;
+  c *= mix(1.0, mix(0.42, 1.0, side), exp(-hh * 2.5));
+  float s = max(dot(d, uSunDir), 0.0);
+  c += uLightColor * (pow(s, 40.0) * 0.9 + pow(s, 6.0) * 0.35) * exp(-hh * 5.0) * (0.35 + 0.65 * uIntensity);
+  return c * (0.22 + 0.78 * uIntensity);
+}
+`;
+const GLSL_MIST = `
+vec3 mistTint(){ return mix(vec3(0.42, 0.27, 0.27), uLightColor * 0.8, 0.22) * 0.5 * (0.3 + 0.7 * uIntensity); }
+vec3 applyMist(vec3 col, vec3 wp, float dist){
+  float hf = exp(-max(wp.y, 0.0) * 1.5);
+  float n = snoise(vec3(wp.xz * 0.22 + vec2(uTime * 0.02, uTime * 0.011), uTime * 0.015)) * 0.5 + 0.5;
+  float a = (1.0 - exp(-dist * 0.055)) * hf * mix(0.45, 1.0, n) * uMist;
+  return mix(col, mistTint(), clamp(a, 0.0, 0.85));
+}
+`;
+const PRE = GLSL_COMMON + GLSL_NOISE + GLSL_SKY + GLSL_MIST;
+
+const VS_SKY = `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const FS_SKY = PRE + `varying vec3 vDir; void main(){ gl_FragColor = vec4(skyColor(normalize(vDir)), 1.0); }`;
+
+const VS_WORLD = `varying vec3 vWorld; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const FS_GROUND = PRE + `
+varying vec3 vWorld;
+void main(){
+  vec3 v = vWorld - uCamPos; float dist = length(v); vec3 dir = v / dist;
+  vec3 hor = skyColor(normalize(vec3(dir.x, 0.0, dir.z) + vec3(1e-5)));
+  float n = snoise(vec3(vWorld.xz * 0.45, 1.7)) * 0.5 + 0.5;
+  float n2 = snoise(vec3(vWorld.xz * 2.3, 4.1)) * 0.5 + 0.5;
+  vec3 base = vec3(0.030, 0.026, 0.034) * (0.65 + 0.5 * n) * (0.85 + 0.3 * n2);
+  base *= 0.35 + 0.65 * uIntensity;
+  base += vec3(0.020, 0.018, 0.030) * uIntensity;
+  vec2 ld = normalize(uLightDir.xz + vec2(1e-5));
+  float r = length(vWorld.xz + ld * 0.9);
+  float spill = exp(-r * 1.3) * 0.55 + exp(-r * 0.45) * 0.08;
+  vec3 col = base + uLightColor * spill * uIntensity;
+  col = mix(col, hor, 1.0 - exp(-dist * 0.06));
+  col = applyMist(col, vWorld, dist);
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+const VS_STONE = `
+varying vec3 vObj; varying vec3 vNrm; varying vec3 vWorld;
+void main(){ vObj = position; vNrm = normal; vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const FS_STONE = PRE + `
+uniform vec3 uCamObj; uniform vec3 uLightObj; uniform vec3 uHalf; uniform float uGain;
+varying vec3 vObj; varying vec3 vNrm; varying vec3 vWorld;
+float boxExit(vec3 ro, vec3 rd, vec3 hb){
+  vec3 s = step(0.0, rd) * 2.0 - 1.0;
+  vec3 t = (s * hb - ro) * s / max(abs(rd), vec3(1e-5));
+  return max(min(min(t.x, t.y), t.z), 0.0);
+}
+vec3 palette(float t){
+  vec3 amber = vec3(1.00, 0.58, 0.26);
+  vec3 rose  = vec3(0.98, 0.50, 0.58);
+  vec3 blue  = vec3(0.56, 0.70, 0.98);
+  t = clamp(t, 0.0, 1.0) * 2.0;
+  return t < 1.0 ? mix(amber, rose, smoothstep(0.0, 1.0, t)) : mix(rose, blue, smoothstep(1.0, 2.0, t));
+}
+void main(){
+  vec3 ro = vObj;
+  vec3 rd = normalize(vObj - uCamObj);
+  vec3 L = normalize(uLightObj);
+  vec3 n = normalize(vNrm);
+  float tExit = boxExit(ro, rd, uHalf);
+  float dt = tExit / float(STEPS);
+  float jit = hash12(gl_FragCoord.xy + fract(uTime * 3.7) * 61.0);
+  float c = dot(rd, L);
+  const float g = 0.6;
+  float hg = (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * c, 1.5);
+  float phase = 0.3 + hg * 0.18;
+  vec3 acc = vec3(0.0); float T = 1.0;
+  for (int i = 0; i < STEPS; i++){
+    vec3 p = ro + rd * ((float(i) + jit) * dt);
+    float w = snoise(p * vec3(0.62, 0.34, 0.62) + vec3(0.0, uTime * 0.004, 0.0));
+    float y = p.y + w * 0.55;
+    float layers = 0.5 + 0.5 * sin(y * 6.5 + w * 2.5);
+    float sigma = 0.6 + 2.6 * layers * layers * layers;
+    float att = exp(-boxExit(p, L, uHalf) * 1.7);
+    float hgt = clamp((y + uHalf.y) / (2.0 * uHalf.y), 0.0, 1.0);
+    vec3 tint = mix(vec3(1.0), palette(hgt + w * 0.06), 0.62);
+    acc += tint * (att * phase + 0.05) * sigma * dt * T;
+    T *= exp(-sigma * dt * 0.8);
+  }
+  vec3 vol = acc * uLightColor * uGain * uIntensity + acc * vec3(0.05, 0.045, 0.07);
+  float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+  float vn = snoise(vObj * vec3(2.2, 1.1, 2.2));
+  float veins = (1.0 - smoothstep(0.0, 0.05, abs(vn))) * 0.55;
+  vec3 alab = vec3(0.82, 0.77, 0.70);
+  float ndl = max(dot(n, L), 0.0);
+  vec3 surf = alab * (vec3(0.035, 0.032, 0.05) + uLightColor * ndl * 0.28) * uIntensity;
+  vec3 e = uHalf - abs(vObj);
+  float emin = min(e.x, min(e.y, e.z)); float emax = max(e.x, max(e.y, e.z));
+  float edge = e.x + e.y + e.z - emin - emax;
+  float back = clamp(c * 0.5 + 0.5, 0.0, 1.0);
+  float leak = exp(-edge * 16.0) * back * back;
+  vec3 col = surf + vol * (1.0 - veins);
+  col += uLightColor * uIntensity * (leak * 1.1 + fres * back * 0.35);
+  col *= mix(0.55, 1.0, smoothstep(0.0, 0.5, vObj.y + uHalf.y));
+  col = applyMist(col, vWorld, length(vWorld - uCamPos));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+const VS_UV = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const FS_HALO = GLSL_COMMON + `
+varying vec2 vUv;
+void main(){
+  vec2 p = vUv - 0.5; float r = length(p) * 2.0;
+  float k = exp(-r * r * 6.0) * 0.5 + exp(-r * 3.5) * 0.16;
+  k *= 1.0 - smoothstep(0.7, 1.0, r);
+  gl_FragColor = vec4(uLightColor * k * uIntensity * 0.9, 1.0);
+}`;
+
+const VS_CARD = `varying vec2 vUv; varying vec3 vWorld; void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vWorld = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const FS_CARD = PRE + `
+uniform float uSeed; varying vec2 vUv; varying vec3 vWorld;
+void main(){
+  float t = uTime;
+  float n = snoise(vec3(vUv * vec2(2.4, 1.1) + vec2(t * 0.014 + uSeed, uSeed * 1.7), t * 0.018)) * 0.5 + 0.5;
+  float n2 = snoise(vec3(vUv * vec2(6.0, 2.2) + vec2(-t * 0.022, uSeed * 3.1), t * 0.03)) * 0.5 + 0.5;
+  float edge = smoothstep(0.0, 0.3, vUv.x) * (1.0 - smoothstep(0.7, 1.0, vUv.x)) * smoothstep(0.0, 0.35, vUv.y) * (1.0 - smoothstep(0.4, 1.0, vUv.y));
+  float fade = smoothstep(2.0, 5.0, length(vWorld - uCamPos));
+  float a = edge * smoothstep(0.25, 0.85, n) * mix(0.5, 1.0, n2) * 0.3 * uMist * fade * (0.4 + 0.6 * uIntensity);
+  gl_FragColor = vec4(mistTint() + uLightColor * 0.06 * uIntensity, a);
+}`;
+
+const VS_POST = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const FS_POST = GLSL_COMMON + GLSL_NOISE + `
+uniform sampler2D tScene; uniform vec2 uRes; uniform float uGrain; uniform float uExposure;
+uniform sampler2D uImgA; uniform sampler2D uImgB; uniform float uImgMix; uniform float uReveal; uniform float uWobble;
+uniform vec2 uImgPos; uniform vec2 uImgSize; uniform vec2 uImgVel; uniform float uRectAspect; uniform float uReduced;
+varying vec2 vUv;
+vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
+vec2 coverUv(vec2 uv, float ra){ const float ta = 0.8; vec2 s = ra > ta ? vec2(1.0, ta / ra) : vec2(ra / ta, 1.0); return (uv - 0.5) * s + 0.5; }
+void main(){
+  vec3 col = texture2D(tScene, vUv).rgb;
+  col = pow(aces(col * uExposure), vec3(1.0 / 2.2));
+  if (uReveal > 0.001){
+    vec2 local = (gl_FragCoord.xy - uImgPos) / uImgSize + 0.5;
+    if (local.x > -0.25 && local.x < 1.25 && local.y > -0.25 && local.y < 1.25){
+      float motion = 1.0 - uReduced;
+      float vl = length(uImgVel);
+      float spd = clamp(vl / 1600.0, 0.0, 1.0) * motion;
+      vec2 dir = uImgVel / (vl + 1e-3);
+      float t = uTime * 0.3;
+      float n1 = snoise(vec3(local * 2.3, t));
+      float n2 = snoise(vec3(local * 2.3 + 5.7, t + 3.1));
+      float wob = (1.0 - uReveal) + uWobble * 0.6;
+      vec2 cl = clamp(local, 0.0, 1.0);
+      float bulge = sin(cl.x * 3.14159) * sin(cl.y * 3.14159);
+      vec2 uv = local + (vec2(n1, n2) * (0.085 * wob + 0.02 * spd) - dir * spd * 0.11 * bulge) * motion;
+      float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+      float frontEdge = uReveal * 1.35 - uv.y - 0.12 + n1 * 0.1;
+      float m = mix(smoothstep(0.0, 0.05, frontEdge), uReveal, uReduced) * inside;
+      vec2 cuv = coverUv(uv, uRectAspect);
+      vec2 ca = dir * spd * 0.012;
+      vec3 A = vec3(texture2D(uImgA, cuv + ca).r, texture2D(uImgA, cuv).g, texture2D(uImgA, cuv - ca).b);
+      vec3 B = vec3(texture2D(uImgB, cuv + ca).r, texture2D(uImgB, cuv).g, texture2D(uImgB, cuv - ca).b);
+      col = mix(col, mix(A, B, uImgMix), m);
+    }
+  }
+  vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y;
+  col *= 1.0 - smoothstep(0.45, 1.25, length(q)) * 0.5;
+  float gr = hash12(gl_FragCoord.xy + floor(mod(uTime * 24.0, 97.0)) * vec2(13.1, 29.7)) - 0.5;
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  col += gr * uGrain * (1.0 - lum * 0.5);
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+/* ================================================================
+   WebGL scene
+   ================================================================ */
+function createGL(canvases){
+  if (!window.THREE) return null;
+  const canvas = $('#gl');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, stencil: false, powerPreference: 'high-performance' });
+  } catch (e) { return null; }
+  if (!renderer || !renderer.getContext()) return null;
+
+  const isGL2 = renderer.capabilities.isWebGL2;
+  const floatRT = isGL2 && renderer.extensions.has('EXT_color_buffer_float');
+  const maxDpr = LOW ? 1.25 : 1.5;
+  const maxPix = LOW ? 520000 : 2100000;
+  let pr = Math.min(window.devicePixelRatio || 1, maxDpr);
+  let scale = 1, W = innerWidth, H = innerHeight, ft = 16, fc = 0, sp = .5;
+  renderer.setPixelRatio(pr);
+  renderer.setClearColor(0x09080b, 1);
+
+  const U = {
+    uTime: { value: 0 }, uLightColor: { value: new THREE.Color(1, .6, .35) }, uIntensity: { value: 0 },
+    uSunDir: { value: new THREE.Vector3(0, .06, -1).normalize() }, uCamPos: { value: new THREE.Vector3() },
+    uMist: { value: 1 }, uLightDir: { value: new THREE.Vector3(0, .34, -1).normalize() }
+  };
+  const lightTarget = new THREE.Color(1, .6, .35);
+  const L = new THREE.Vector3();
+  const par = { x: 0, y: 0 };
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, 1, .1, 220);
+
+  // Sky
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(80, 48, 24),
+    new THREE.ShaderMaterial({ uniforms: U, vertexShader: VS_SKY, fragmentShader: FS_SKY, side: THREE.BackSide, depthWrite: false }));
+  sky.renderOrder = -1; sky.frustumCulled = false; scene.add(sky);
+
+  // Ground
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 160),
+    new THREE.ShaderMaterial({ uniforms: U, vertexShader: VS_WORLD, fragmentShader: FS_GROUND }));
+  ground.rotation.x = -Math.PI / 2; scene.add(ground);
+
+  // Monolith
+  const HALF = new THREE.Vector3(.72, 2.15, .3);
+  const stoneU = Object.assign({
+    uCamObj: { value: new THREE.Vector3() }, uLightObj: { value: new THREE.Vector3() },
+    uHalf: { value: HALF }, uGain: { value: 1.55 }
+  }, U);
+  const stone = new THREE.Mesh(new THREE.BoxGeometry(HALF.x * 2, HALF.y * 2, HALF.z * 2),
+    new THREE.ShaderMaterial({ uniforms: stoneU, vertexShader: VS_STONE, fragmentShader: FS_STONE, defines: { STEPS: LOW ? 10 : 24 } }));
+  stone.position.set(0, HALF.y, 0); stone.rotation.set(0, .38, .012);
+  scene.add(stone);
+  stone.updateMatrixWorld(true);
+  const stoneInv = new THREE.Matrix4().copy(stone.matrixWorld).invert();
+
+  // Backlight halo
+  const halo = new THREE.Mesh(new THREE.PlaneGeometry(10, 10),
+    new THREE.ShaderMaterial({ uniforms: U, vertexShader: VS_UV, fragmentShader: FS_HALO, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const haloBase = new THREE.Vector3(0, 2.3, 0);
+  scene.add(halo);
+
+  // Ground mist sheets
+  const cards = [];
+  const cardDefs = LOW
+    ? [[-3.0, .7, 2.2, .3], [1.2, .85, -2.4, 3.1]]
+    : [[-3.2, .7, 2.4, .3], [3.6, .6, 1.2, 1.7], [.4, .85, -2.4, 3.1], [-5.5, .6, -1.4, 4.4], [5.2, .9, -3.6, 5.9]];
+  cardDefs.forEach(d => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(11, 2.4),
+      new THREE.ShaderMaterial({ uniforms: Object.assign({ uSeed: { value: d[3] } }, U), vertexShader: VS_CARD, fragmentShader: FS_CARD, transparent: true, depthWrite: false }));
+    m.position.set(d[0], d[1], d[2]); scene.add(m); cards.push(m);
+  });
+
+  // Render target + post
+  const rt = new THREE.WebGLRenderTarget(2, 2, {
+    type: floatRT ? THREE.HalfFloatType : THREE.UnsignedByteType, format: THREE.RGBAFormat,
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true, stencilBuffer: false
+  });
+  const tex = canvases.map(c => {
+    const t = new THREE.CanvasTexture(c);
+    t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter; t.generateMipmaps = false;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t;
+  });
+  const postU = {
+    tScene: { value: rt.texture }, uRes: { value: new THREE.Vector2(1, 1) }, uTime: U.uTime,
+    uGrain: { value: LOW ? .05 : .06 }, uExposure: { value: 1 },
+    uImgA: { value: tex[0] }, uImgB: { value: tex[0] }, uImgMix: { value: 0 }, uReveal: { value: 0 }, uWobble: { value: 0 },
+    uImgPos: { value: new THREE.Vector2() }, uImgSize: { value: new THREE.Vector2(1, 1) }, uImgVel: { value: new THREE.Vector2() },
+    uRectAspect: { value: .8 }, uReduced: { value: reduced ? 1 : 0 }
+  };
+  const postScene = new THREE.Scene();
+  const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2),
+    new THREE.ShaderMaterial({ uniforms: postU, vertexShader: VS_POST, fragmentShader: FS_POST, depthTest: false, depthWrite: false }));
+  quad.frustumCulled = false; postScene.add(quad);
+
+  function sizeRT(){
+    const bw = W * pr, bh = H * pr;
+    const s = Math.min(scale, Math.sqrt(maxPix / (bw * bh)), 1);
+    rt.setSize(Math.max(2, Math.floor(bw * s)), Math.max(2, Math.floor(bh * s)));
+  }
+  function resize(){
+    W = canvas.clientWidth || innerWidth; H = canvas.clientHeight || innerHeight;
+    pr = Math.min(window.devicePixelRatio || 1, maxDpr);
+    renderer.setPixelRatio(pr); renderer.setSize(W, H, false);
+    const a = W / H;
+    camera.aspect = a; camera.fov = a < .8 ? 48 : (a < 1.2 ? 42 : 35); camera.updateProjectionMatrix();
+    sizeRT();
+    postU.uRes.value.set(W * pr, H * pr);
+    S.img.w = Math.min(400, Math.max(240, W * .2)); S.img.h = S.img.w * 1.25;
+  }
+
+  function update(dt){
+    const t = U.uTime.value = reduced ? 12 : U.uTime.value + dt;
+
+    // camera: route position + slow drift + mouse parallax
+    par.x = reduced ? 0 : damp(par.x, S.mouse.nx, 1.4, dt);
+    par.y = reduced ? 0 : damp(par.y, S.mouse.ny, 1.4, dt);
+    const cp = S.cam.pos, ct = S.cam.target;
+    let dx = 0, dy = 0, dz = 0;
+    if (!reduced){
+      dx = Math.sin(t * .047) * .3 + Math.sin(t * .019 + 1.3) * .18;
+      dy = Math.sin(t * .031) * .1;
+      dz = Math.cos(t * .041) * .26;
+    }
+    camera.position.set(cp.x + dx + par.x * .45, cp.y + dy + par.y * .2, cp.z + dz);
+    camera.lookAt(ct.x + par.x * .12, ct.y + par.y * .05, ct.z);
+    U.uCamPos.value.copy(camera.position);
+
+    // light: stays behind the stone, turns with scroll
+    const az = Math.atan2(cp.x, cp.z);
+    sp = reduced ? .5 : damp(sp, S.scrollP, 2, dt);
+    const th = -az + (sp - .5) * 2.3 + (reduced ? 0 : Math.sin(t * .06) * .1);
+    L.set(Math.sin(th), .34, -Math.cos(th)).normalize();
+    U.uLightDir.value.copy(L);
+    U.uSunDir.value.set(L.x, .05, L.z).normalize();
+    U.uLightColor.value.lerp(lightTarget, 1 - Math.exp(-dt * (reduced ? 6 : 1.8)));
+
+    stoneU.uCamObj.value.copy(camera.position).applyMatrix4(stoneInv);
+    stoneU.uLightObj.value.copy(L).transformDirection(stoneInv);
+    halo.position.set(L.x, 0, L.z).normalize().multiplyScalar(1.9).add(haloBase);
+    halo.quaternion.copy(camera.quaternion);
+    sky.position.copy(camera.position);
+    for (let i = 0; i < cards.length; i++){
+      const c = cards[i];
+      c.rotation.y = Math.atan2(camera.position.x - c.position.x, camera.position.z - c.position.z);
+    }
+
+    // liquid image
+    const I = S.img;
+    if (I.mode !== 'none'){
+      let tw = I.w, th2 = I.h;
+      const idt = Math.max(dt, 1e-3);
+      if (I.mode === 'cursor'){
+        const flip = S.mouse.x + I.w * 1.2 > W;
+        const tx = S.mouse.x + (flip ? -1 : 1) * I.w * .62, ty = S.mouse.y;
+        if (reduced){ I.x = tx; I.y = ty; } else { I.x = damp(I.x, tx, 6.5, dt); I.y = damp(I.y, ty, 6.5, dt); }
+        I.vx = damp(I.vx, (I.x - I.px) / idt, 10, dt);
+        I.vy = damp(I.vy, (I.y - I.py) / idt, 10, dt);
+      } else if (I.el){
+        const r = I.el.getBoundingClientRect();
+        I.x = r.left + r.width / 2; I.y = r.top + r.height / 2; tw = r.width; th2 = r.height;
+        I.vx = 0; I.vy = damp(I.vy, -S.scrollVel * .8, 8, dt);
+      }
+      I.px = I.x; I.py = I.y;
+      postU.uImgPos.value.set(I.x * pr, (H - I.y) * pr);
+      postU.uImgSize.value.set(Math.max(1, tw * pr), Math.max(1, th2 * pr));
+      postU.uImgVel.value.set(I.vx, -I.vy);
+      postU.uRectAspect.value = tw / Math.max(1, th2);
+    }
+
+    // adaptive resolution to hold 60 fps
+    if (dt > 0 && dt < .1){
+      ft = ft * .94 + dt * 1000 * .06;
+      if (++fc > 75){
+        fc = 0;
+        if (ft > 19.5 && scale > .5){ scale = Math.max(.5, scale - .1); sizeRT(); }
+        else if (ft < 14 && scale < 1){ scale = Math.min(1, scale + .05); sizeRT(); }
+      }
+    }
+
+    renderer.setRenderTarget(rt); renderer.render(scene, camera);
+    renderer.setRenderTarget(null); renderer.render(postScene, postCam);
+  }
+
+  function killMix(){
+    const I = S.img;
+    if (I.mixTween){ I.mixTween.kill(); I.mixTween = null; }
+    postU.uImgMix.value = 0;
+  }
+
+  return {
+    U, canvas, update, resize,
+    compile(){ renderer.compile(scene, camera); renderer.compile(postScene, postCam); },
+    setLight(hex){ lightTarget.set(hex).convertSRGBToLinear(); },
+    snapLight(hex){ lightTarget.set(hex).convertSRGBToLinear(); U.uLightColor.value.copy(lightTarget); },
+    showCursorImage(i){
+      const I = S.img;
+      const hidden = I.mode !== 'cursor' || postU.uReveal.value < .05;
+      I.mode = 'cursor'; I.el = null;
+      if (hidden){
+        killMix(); postU.uImgA.value = tex[i]; I.idx = i;
+        I.x = I.px = S.mouse.x + I.w * .62; I.y = I.py = S.mouse.y; I.vx = I.vy = 0;
+        gsap.to(postU.uReveal, { value: 1, duration: reduced ? .6 : 1.3, ease: reduced ? 'power1.out' : EO, overwrite: true });
+      } else if (i !== I.idx){
+        if (I.mixTween){ I.mixTween.kill(); I.mixTween = null; if (postU.uImgMix.value > .5) postU.uImgA.value = postU.uImgB.value; }
+        postU.uImgB.value = tex[i]; postU.uImgMix.value = 0; I.idx = i;
+        I.mixTween = gsap.to(postU.uImgMix, { value: 1, duration: .7, ease: 'power2.out', onComplete(){
+          postU.uImgA.value = postU.uImgB.value; postU.uImgMix.value = 0; I.mixTween = null; } });
+        if (!reduced) gsap.fromTo(postU.uWobble, { value: 1 }, { value: 0, duration: 1.2, ease: EO, overwrite: true });
+        gsap.to(postU.uReveal, { value: 1, duration: .8, ease: EO, overwrite: true });
+      }
+    },
+    showDomImage(el, i){
+      const I = S.img;
+      killMix(); I.mode = 'dom'; I.el = el; I.idx = i; I.vy = 0;
+      postU.uImgA.value = tex[i];
+      gsap.fromTo(postU.uReveal, { value: 0 }, { value: 1, duration: reduced ? .9 : 2, ease: reduced ? 'power1.out' : EO, overwrite: true });
+    },
+    hideImage(d){
+      gsap.to(postU.uReveal, { value: 0, duration: d || .9, ease: reduced ? 'power1.out' : EO, overwrite: true,
+        onComplete(){ S.img.mode = 'none'; S.img.el = null; S.img.idx = -1; } });
+    }
+  };
+}
+
+/* ================================================================
+   Text: line splitting & reveals
+   ================================================================ */
+function splitLines(el){
+  const text = el.dataset.text || el.textContent.trim().replace(/\s+/g, ' ');
+  el.dataset.text = text;
+  el.textContent = '';
+  const words = text.split(' ');
+  const spans = words.map((w, i) => {
+    const s = document.createElement('span'); s.textContent = w; el.appendChild(s);
+    if (i < words.length - 1) el.appendChild(document.createTextNode(' '));
+    return s;
+  });
+  const lines = []; let top = null;
+  spans.forEach(s => {
+    const t = s.offsetTop;
+    if (top === null || Math.abs(t - top) > 2){ lines.push([]); top = t; }
+    lines[lines.length - 1].push(s.textContent);
+  });
+  el.textContent = '';
+  lines.forEach(l => {
+    const o = document.createElement('span'); o.className = 'line';
+    const i = document.createElement('span'); i.className = 'line-i'; i.textContent = l.join(' ');
+    o.appendChild(i); el.appendChild(o);
+  });
+}
+
+function prepareView(view){
+  view.style.visibility = 'hidden';
+  $$('[data-split]', view).forEach(splitLines);
+  if (reduced) $$('[data-group]', view).forEach(g => { g.style.opacity = 0; });
+  else {
+    gsap.set($$('.line-i', view), { yPercent: 110 });
+    if (!gl) $$('[data-visual]', view).forEach(v => { v.style.opacity = 0; });
+  }
+  view.style.visibility = '';
+}
+
+function revealGroup(g, delay){
+  if (g.dataset.revealed) return;
+  g.dataset.revealed = '1';
+  if (reduced) gsap.to(g, { opacity: 1, duration: .9, ease: 'power1.out', delay });
+  else {
+    const lines = $$('.line-i', g);
+    if (lines.length) gsap.to(lines, { yPercent: 0, duration: 1.6, ease: EO, stagger: .075, delay });
+  }
+  if (g.hasAttribute('data-visual')){
+    if (gl) setTimeout(() => { if (S.view && S.view.contains(g) && S.route && S.route.name === 'project') gl.showDomImage(g, S.route.index); }, delay * 1000);
+    else if (!reduced) gsap.to(g, { opacity: 1, duration: 1.4, ease: EO, delay });
+  }
+}
+
+function enterView(view){
+  if (S.observer) S.observer.disconnect();
+  S.observer = new IntersectionObserver(entries => {
+    let k = 0;
+    entries.forEach(en => {
+      if (en.isIntersecting){ revealGroup(en.target, k * .07); k++; S.observer.unobserve(en.target); }
+    });
+  }, { rootMargin: '0px 0px -6% 0px', threshold: .01 });
+  $$('[data-group]', view).forEach(g => S.observer.observe(g));
+}
+
+function animateOut(view){
+  if (S.observer){ S.observer.disconnect(); S.observer = null; }
+  return new Promise(res => {
+    if (reduced){ gsap.to(view, { opacity: 0, duration: .45, ease: 'power1.out', onComplete: res }); return; }
+    const lines = $$('.line-i', view).filter(l => { const r = l.getBoundingClientRect(); return r.bottom > -40 && r.top < innerHeight + 40; });
+    if (!gl) $$('[data-visual]', view).forEach(v => gsap.to(v, { opacity: 0, duration: .5 }));
+    if (!lines.length){ res(); return; }
+    gsap.to(lines, { yPercent: -110, duration: .75, ease: 'power3.in', stagger: { amount: .18 }, overwrite: true, onComplete: res });
+  });
+}
+
+function resplit(){
+  if (!S.view) return;
+  $$('[data-split]', S.view).forEach(splitLines);
+  if (reduced) return;
+  $$('[data-group]', S.view).forEach(g => {
+    gsap.set($$('.line-i', g), { yPercent: g.dataset.revealed ? 0 : 110 });
+  });
+}
+
+/* ================================================================
+   Views
+   ================================================================ */
+function parse(h){
+  h = (h || '').replace(/^#\/?/, '');
+  if (h === 'about') return { name: 'about' };
+  const m = h.match(/^work\/([\w-]+)/);
+  if (m){ const i = P.findIndex(p => p.slug === m[1]); if (i >= 0) return { name: 'project', index: i }; }
+  return { name: 'home' };
+}
+const sameRoute = (a, b) => a && b && a.name === b.name && a.index === b.index;
+const routeColor = r => r.name === 'home' ? CONFIG.homeColor : r.name === 'about' ? CONFIG.aboutColor : P[r.index].color;
+const titleFor = r => r.name === 'home' ? CONFIG.name + ' — ' + CONFIG.role
+  : r.name === 'about' ? 'About — ' + CONFIG.name : P[r.index].title + ' — ' + CONFIG.name;
+const maskLine = t => '<span class="line"><span class="line-i">' + esc(t) + '</span></span>';
+
+function build(r){
+  const s = document.createElement('section');
+  s.tabIndex = -1;
+  if (r.name === 'home'){
+    s.className = 'view home';
+    s.innerHTML = '<h1 class="sr">' + esc(CONFIG.name) + ', ' + esc(CONFIG.role) + '</h1><ol class="plist">' +
+      P.map((p, i) => '<li data-group><a class="p" href="#/work/' + p.slug + '" data-i="' + i + '"><span class="p-num" aria-hidden="true">' +
+        maskLine(pad(i + 1)) + '</span><span class="p-title" data-split>' + esc(p.title) + '</span></a></li>').join('') + '</ol>';
+  } else if (r.name === 'about'){
+    s.className = 'view about';
+    s.innerHTML = '<h1 class="sr">About</h1><p class="bio" data-group data-split>' + esc(CONFIG.bio) + '</p>' +
+      '<ul class="awards">' + CONFIG.awards.map(a => '<li data-group><span class="aw-q">' + maskLine(a[0] + 'x') +
+        '</span><span class="aw-l" data-split>' + esc(a[1]) + '</span></li>').join('') + '</ul>' +
+      '<div data-group><button class="copy" type="button"><span class="line"><span class="line-i"><span class="copy-mask">' +
+      '<span class="copy-a">Copy email</span><span class="copy-b" aria-hidden="true">Copied</span></span></span></span></button></div>';
+  } else {
+    const i = r.index, p = P[i], ni = (i + 1) % P.length, n = P[ni];
+    s.className = 'view project';
+    s.innerHTML =
+      '<header data-group><span class="pj-num">' + maskLine(pad(i + 1) + ' / ' + pad(P.length)) + '</span>' +
+      '<h1 class="pj-title" data-split>' + esc(p.title) + '</h1></header>' +
+      '<div class="pj-grid"><dl class="pj-meta" data-group>' +
+        [['Year', p.year], ['Role', p.role], ['Client', p.client]].map(m => '<div><dt data-split>' + esc(m[0]) + '</dt><dd data-split>' + esc(m[1]) + '</dd></div>').join('') +
+      '</dl><p class="pj-desc" data-group data-split>' + esc(p.text) + '</p></div>' +
+      '<div class="pj-visual" data-group data-visual aria-hidden="true"></div>' +
+      '<a class="pj-next" href="#/work/' + n.slug + '" data-group><span class="pj-next-label">' + maskLine('Next project, ' + pad(ni + 1)) +
+      '</span><span class="pj-next-title" data-split>' + esc(n.title) + '</span></a>';
+    if (!gl){
+      const img = document.createElement('img');
+      img.alt = ''; img.src = visuals[i].toDataURL('image/jpeg', .88);
+      $('.pj-visual', s).appendChild(img);
+    }
+  }
+  return s;
+}
+
+/* ---------- home interactions ---------- */
+function bindHome(view){
+  const list = $('.plist', view), items = $$('.p', view);
+  if (!canHover()){ list.classList.add('m'); S.mActive = -1; updateMobileActive(); return; }
+  const enter = i => {
+    clearTimeout(S.hoverTimer);
+    list.classList.add('is-hover');
+    items.forEach((a, k) => a.classList.toggle('is-active', k === i));
+    setLight(P[i].color);
+    if (gl) gl.showCursorImage(i);
+  };
+  const leave = () => {
+    list.classList.remove('is-hover');
+    items.forEach(a => a.classList.remove('is-active'));
+    if (S.route && S.route.name === 'home') setLight(CONFIG.homeColor);
+    if (gl) gl.hideImage(.9);
+  };
+  items.forEach((a, i) => {
+    a.addEventListener('mouseenter', () => enter(i));
+    a.addEventListener('mouseleave', () => { clearTimeout(S.hoverTimer); S.hoverTimer = setTimeout(leave, 90); });
+    a.addEventListener('focus', () => enter(i));
+    a.addEventListener('blur', () => { clearTimeout(S.hoverTimer); S.hoverTimer = setTimeout(leave, 90); });
+  });
+}
+function updateMobileActive(){
+  if (!S.view || !S.route || S.route.name !== 'home') return;
+  const list = $('.plist.m', S.view); if (!list) return;
+  const items = $$('.p', list), mid = innerHeight * .5;
+  let best = -1, bd = Infinity;
+  items.forEach((el, i) => { const r = el.getBoundingClientRect(); const d = Math.abs(r.top + r.height / 2 - mid); if (d < bd){ bd = d; best = i; } });
+  if (best === S.mActive) return;
+  S.mActive = best;
+  items.forEach((el, i) => el.classList.toggle('is-active', i === best));
+  if (best >= 0) setLight(P[best].color);
+}
+
+/* ---------- about: copy email ---------- */
+function charSpans(el, text){
+  el.textContent = '';
+  Array.from(text).forEach(ch => { const s = document.createElement('span'); s.className = 'ch'; s.textContent = ch; el.appendChild(s); });
+  return $$('.ch', el);
+}
+function legacyCopy(text){
+  try {
+    const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove(); return ok;
+  } catch (e) { return false; }
+}
+function bindAbout(view){
+  const btn = $('.copy', view); if (!btn) return;
+  const a = $('.copy-a', btn), b = $('.copy-b', btn);
+  let aCh = charSpans(a, 'Copy email');
+  gsap.set(b, { yPercent: 110 });
+  btn.addEventListener('click', async () => {
+    let ok = false;
+    try { await navigator.clipboard.writeText(CONFIG.email); ok = true; } catch (e) { ok = legacyCopy(CONFIG.email); }
+    const bCh = charSpans(b, ok ? 'Copied' : CONFIG.email);
+    b.removeAttribute('aria-hidden');
+    $('#live').textContent = ok ? 'Email copied' : CONFIG.email;
+    clearTimeout(btn._t);
+    gsap.killTweensOf([a, b, aCh, bCh]);
+    if (reduced){
+      gsap.set(b, { yPercent: 0, opacity: 0 }); gsap.to(a, { opacity: 0, duration: .3 }); gsap.to(b, { opacity: 1, duration: .4 });
+    } else {
+      gsap.set(b, { yPercent: 0 }); gsap.set(a, { yPercent: 0 });
+      gsap.to(aCh, { yPercent: -110, duration: .6, ease: EO, stagger: .018 });
+      gsap.fromTo(bCh, { yPercent: 110 }, { yPercent: 0, duration: .9, ease: EO, stagger: .028, delay: .05 });
+    }
+    btn._t = setTimeout(() => {
+      b.setAttribute('aria-hidden', 'true');
+      if (reduced){ gsap.to(b, { opacity: 0, duration: .3 }); gsap.to(a, { opacity: 1, duration: .4 }); return; }
+      gsap.to($$('.ch', b), { yPercent: -110, duration: .6, ease: EO, stagger: .015 });
+      aCh = $$('.ch', a);
+      gsap.fromTo(aCh, { yPercent: 110 }, { yPercent: 0, duration: .9, ease: EO, stagger: .02, delay: .08 });
+    }, ok ? 2200 : 6000);
+  });
+}
+
+/* ---------- project: next-link light preview ---------- */
+function bindProject(view, r){
+  const next = $('.pj-next', view); if (!next) return;
+  const n = P[(r.index + 1) % P.length];
+  next.addEventListener('mouseenter', () => setLight(n.color));
+  next.addEventListener('mouseleave', () => { if (S.route && S.route.index === r.index) setLight(P[r.index].color); });
+}
+
+/* ================================================================
+   Router, camera, light
+   ================================================================ */
+function setLight(hex){ if (gl) gl.setLight(hex); }
+
+function camFor(r){
+  const n = isNarrow(), C = { x: 0, y: 2.15, z: 0 };
+  let pos, off;
+  if (r.name === 'home'){ pos = n ? { x: 0, y: 2, z: 12.8 } : { x: .4, y: 1.75, z: 9.6 }; off = n ? 0 : 1.35; C.y = n ? 2.4 : 2.05; }
+  else if (r.name === 'about'){ pos = n ? { x: -2.2, y: 1.2, z: 11.2 } : { x: 3.6, y: .95, z: 7 }; off = n ? 0 : 1.25; C.y = n ? 2.6 : 2.35; }
+  else {
+    const i = r.index, a = -1.05 + i * (2.1 / 11), rad = (n ? 11.5 : 7.4) - (i % 3) * .5;
+    pos = { x: Math.sin(a) * rad, y: .9 + (i % 4) * .32, z: Math.cos(a) * rad };
+    off = n ? 0 : 1.3; C.y = n ? 2.5 : 2.2;
+  }
+  const fx = C.x - pos.x, fz = C.z - pos.z, fl = Math.hypot(fx, fz) || 1;
+  const rx = -fz / fl, rz = fx / fl;
+  return { pos, target: { x: C.x - rx * off, y: C.y, z: C.z - rz * off } };
+}
+
+function moveCamera(r, intro){
+  const c = camFor(r);
+  const assign = () => { Object.assign(S.cam.pos, c.pos); Object.assign(S.cam.target, c.target); };
+  if (reduced){
+    if (gl && !intro){
+      gsap.to(gl.canvas, { opacity: 0, duration: .35, ease: 'power1.out', onComplete(){ assign(); gsap.to(gl.canvas, { opacity: 1, duration: .6, ease: 'power1.out' }); } });
+    } else assign();
+    return;
+  }
+  if (intro){
+    const p = c.pos, t = c.target;
+    S.cam.pos.x = t.x + (p.x - t.x) * 1.7; S.cam.pos.y = p.y - .4; S.cam.pos.z = t.z + (p.z - t.z) * 1.7;
+    Object.assign(S.cam.target, { x: t.x, y: t.y + .3, z: t.z });
+  }
+  const opts = { duration: intro ? 4.8 : 2.8, ease: intro ? EO : 'power3.inOut', overwrite: true };
+  gsap.to(S.cam.pos, Object.assign({}, c.pos, opts));
+  gsap.to(S.cam.target, Object.assign({}, c.target, opts));
+}
+
+function updateHeader(r){
+  const lab = $('#aboutLabel'), link = $('.hd-about');
+  const isAbout = r.name === 'about', txt = isAbout ? 'Index' : 'About';
+  link.setAttribute('href', isAbout ? '#/' : '#/about');
+  if (lab.textContent === txt) return;
+  if (reduced || !S.view){ lab.textContent = txt; return; }
+  gsap.to(lab, { yPercent: -110, duration: .45, ease: 'power3.in', onComplete(){
+    lab.textContent = txt; gsap.fromTo(lab, { yPercent: 110 }, { yPercent: 0, duration: 1.1, ease: EO }); } });
+}
+
+async function go(route, intro){
+  if (S.busy){ S.pending = route; return; }
+  if (S.route && sameRoute(route, S.route)) return;
+  S.busy = true;
+  const prev = S.view;
+  clearTimeout(S.hoverTimer);
+  moveCamera(route, intro);
+  setLight(routeColor(route));
+  if (gl) gl.hideImage(.6);
+  updateHeader(route);
+  if (prev){ await animateOut(prev); prev.remove(); }
+  if (lenis) lenis.scrollTo(0, { immediate: true, force: true });
+  window.scrollTo(0, 0);
+  S.route = route; S.mActive = -1;
+  document.title = titleFor(route);
+  const view = build(route);
+  $('#app').appendChild(view); S.view = view;
+  prepareView(view);
+  if (route.name === 'home') bindHome(view);
+  else if (route.name === 'about') bindAbout(view);
+  else bindProject(view, route);
+  if (lenis && lenis.resize) lenis.resize();
+  if (!intro) view.focus({ preventScroll: true });
+  await wait(intro ? 900 : (reduced ? 50 : 350));
+  enterView(view);
+  S.busy = false;
+  if (S.pending){ const r = S.pending; S.pending = null; go(r); }
+}
+
+/* ================================================================
+   Boot
+   ================================================================ */
+function tick(dt){
+  const sy = lenis ? lenis.scroll : window.scrollY;
+  const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+  S.scrollP = Math.min(1, Math.max(0, sy / max));
+  if (dt > 0){ S.scrollVel = damp(S.scrollVel, (sy - S.lastSy) / Math.max(dt, 1e-3), 8, dt); }
+  S.lastSy = sy;
+  if (gl) gl.update(dt);
+}
+
+function start(){
+  S.started = true;
+  const ld = $('#loader');
+  if (!reduced) gsap.to(['#ldNum', '#ldPct'], { yPercent: -110, duration: .8, ease: 'power3.in', stagger: .05 });
+  gsap.to(ld, { opacity: 0, duration: reduced ? .6 : 1.4, delay: reduced ? 0 : .6, ease: 'power2.out', onComplete(){ ld.remove(); } });
+  const hl = $$('.hd .line-i');
+  if (!reduced) gsap.set(hl, { yPercent: 110 });
+  document.documentElement.classList.remove('is-loading');
+  if (lenis) lenis.start();
+  if (gl) gsap.to(gl.U.uIntensity, { value: 1, duration: reduced ? .01 : 3.8, delay: reduced ? 0 : .4, ease: 'power2.out' });
+  if (reduced) gsap.fromTo('.hd', { opacity: 0 }, { opacity: 1, duration: .8, ease: 'power1.out' });
+  else gsap.to(hl, { yPercent: 0, duration: 1.6, ease: EO, stagger: .1, delay: 1.2 });
+  go(parse(location.hash), true);
+}
+
+async function boot(){
+  const t0 = performance.now();
+  const num = $('#ldNum'), shown = { v: 0 };
+  const prog = p => gsap.to(shown, { v: p, duration: .9, ease: EO, overwrite: true, onUpdate(){ num.textContent = Math.round(shown.v); } });
+
+  if (!reduced && window.Lenis){
+    lenis = new Lenis({ duration: 1.35, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smoothWheel: true, wheelMultiplier: .9, touchMultiplier: 1.4 });
+    lenis.stop();
+  }
+  gsap.ticker.add((time, deltaMs) => { if (lenis) lenis.raf(time * 1000); tick(Math.min(deltaMs / 1000, .1)); });
+  gsap.ticker.lagSmoothing(0);
+
+  prog(6);
+  try {
+    if (document.fonts && document.fonts.load){
+      await Promise.race([Promise.all([document.fonts.load('300 64px Inter'), document.fonts.load('200 16px Inter'), document.fonts.load('400 16px Inter')]).then(() => document.fonts.ready), wait(3000)]);
+    }
+  } catch (e) {}
+  prog(22); await nextFrame();
+
+  for (let i = 0; i < P.length; i++){
+    visuals.push(drawVisual(P[i], i));
+    if (i % 3 === 2){ prog(22 + Math.round((i + 1) / P.length * 38)); await nextFrame(); }
+  }
+
+  const first = parse(location.hash);
+  const c = camFor(first);
+  Object.assign(S.cam.pos, { x: c.pos.x * 1.7, y: c.pos.y - .4, z: c.pos.z * 1.7 });
+  Object.assign(S.cam.target, c.target);
+
+  try { gl = createGL(visuals); } catch (e) { console.warn(e); gl = null; }
+  if (!gl) document.documentElement.classList.add('no-gl');
+  prog(72); await nextFrame();
+
+  if (gl){ gl.resize(); gl.snapLight(routeColor(first)); try { gl.compile(); } catch (e) {} }
+  prog(90); await nextFrame();
+  if (gl) gl.update(.016);
+  await nextFrame();
+  prog(100);
+  await wait(Math.max(1000, 1900 - (performance.now() - t0)));
+  start();
+}
+
+/* ---------- global listeners ---------- */
+window.addEventListener('pointermove', e => {
+  S.mouse.x = e.clientX; S.mouse.y = e.clientY;
+  if (e.pointerType === 'mouse' || e.pointerType === 'pen'){
+    S.mouse.nx = e.clientX / innerWidth * 2 - 1;
+    S.mouse.ny = -(e.clientY / innerHeight * 2 - 1);
+  }
+}, { passive: true });
+window.addEventListener('scroll', updateMobileActive, { passive: true });
+window.addEventListener('hashchange', () => { if (S.started) go(parse(location.hash)); });
+
+let lastW = innerWidth, rsT = null, lastNarrow = isNarrow();
+window.addEventListener('resize', () => {
+  if (gl) gl.resize();
+  clearTimeout(rsT);
+  rsT = setTimeout(() => {
+    if (innerWidth === lastW) return;
+    lastW = innerWidth; resplit();
+    if (S.route){
+      const nw = isNarrow();
+      if (nw !== lastNarrow){ lastNarrow = nw; const r = S.route; S.route = null; S.view && S.view.remove(); S.view = null; go(r); return; }
+      const c = camFor(S.route);
+      if (reduced){ Object.assign(S.cam.pos, c.pos); Object.assign(S.cam.target, c.target); }
+      else { gsap.to(S.cam.pos, Object.assign({}, c.pos, { duration: 1.4, ease: EO, overwrite: true })); gsap.to(S.cam.target, Object.assign({}, c.target, { duration: 1.4, ease: EO, overwrite: true })); }
+    }
+    updateMobileActive();
+  }, 180);
+});
+
+if (!window.gsap){
+  document.documentElement.classList.remove('is-loading');
+  $('#loader').remove();
+  document.documentElement.classList.add('no-gl');
+  $('#app').innerHTML = '<p style="padding:30vh var(--pad)">The page could not load its animation library. Reload to try again.</p>';
+  return;
+}
+boot();
+})();
+</script>
+</body>
+</html>
