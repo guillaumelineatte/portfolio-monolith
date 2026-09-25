@@ -8,6 +8,10 @@ import { sceneRefs } from "./sceneRefs";
 import { frameState, useSceneStore } from "@/lib/store";
 import { damp } from "@/lib/math";
 
+/** Largest offset the idle drift + pointer parallax below add to the camera position, per axis.
+ * Used by Monolith's photo-occlusion check, keep in sync with the numbers in useFrame. */
+export const CAM_JITTER = { x: 0.3 + 0.18 + 0.45, y: 0.1 + 0.2, z: 0.26 };
+
 /**
  * Priority 1, runs first every frame. Sets uTime, idle drift + mouse parallax, and keeps the
  * sky dome on the camera. First half of the prototype's update(dt).

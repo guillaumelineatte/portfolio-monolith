@@ -18,8 +18,7 @@ interface CamPose {
  * (IDLE_* in three/Monolith.tsx). Moving closer eats the vertical margin first, so check the
  * top and bottom of the stone after touching z/rad or C.y.
  */
-export function camFor(r: RouteDescriptor): CamPose {
-  const n = isNarrow();
+export function camFor(r: RouteDescriptor, n = isNarrow()): CamPose {
   const C = { x: 0, y: 2.15, z: 0 };
   let pos: { x: number; y: number; z: number };
   let off: number;

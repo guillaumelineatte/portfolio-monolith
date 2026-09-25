@@ -13,16 +13,20 @@ export interface FractureParams {
   count: number;
   seed: number;
   thickness: number;
-  /** Extra spread per fragment index, object space, added to uSpread (not multiplied, that
-   * overshoots at SPREAD_FULL). Same order as `cells`. Default 0. */
-  spreadExtra?: Record<number, number>;
 }
 
 export interface FractureCellInfo {
   pivot: THREE.Vector3;
   outDir: THREE.Vector3;
   delay: number;
+  /** Extra spread, object space, ADDED to uSpread (not multiplied, that overshoots at SPREAD_FULL).
+   * 0 at build time, filled in by setSpreadExtra() from photoOcclusion.ts. */
   spreadExtra: number;
+  /** Axis * angle of the open rotation, same as the aRotAxis attribute. */
+  rotAxis: THREE.Vector3;
+  /** Vertex range in the merged geometry. */
+  vertexStart: number;
+  vertexCount: number;
 }
 
 export interface FractureResult {
@@ -159,7 +163,7 @@ function outwardNormal(x: number, y: number, R: number, halfLen: number): THREE.
 }
 
 export function buildFractureGeometry(params: FractureParams): FractureResult {
-  const { radius: R, length: L, count, seed, thickness, spreadExtra: spreadExtraMap = {} } = params;
+  const { radius: R, length: L, count, seed, thickness } = params;
   const halfLen = L / 2;
   const H = halfLen + R;
   const W = 2 * Math.PI * R;
@@ -194,8 +198,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   const boundsMax: number[] = [];
   const cellsInfo: FractureCellInfo[] = [];
 
-  cells.forEach(({ seed: s, poly }, cellIndex) => {
-    const spreadExtra = spreadExtraMap[cellIndex] ?? 0;
+  cells.forEach(({ seed: s, poly }) => {
     const outerPivot = surfacePoint(s.x, s.y, R, halfLen);
     const nrmPivot = outwardNormal(s.x, s.y, R, halfLen);
     const pivot3 = outerPivot.clone().sub(nrmPivot.clone().multiplyScalar(thickness * 0.5));
@@ -221,7 +224,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
 
     const distToCenter = Math.hypot(s.x, s.y);
     const delay = (distToCenter / maxDelayDist) * 0.75;
-    cellsInfo.push({ pivot: pivot3.clone(), outDir: outDir.clone(), delay, spreadExtra });
+    const vertexStart = positions.length / 3;
 
     const n = poly.length;
     const pushVert = (p: THREE.Vector3, nrm: THREE.Vector3) => {
@@ -231,7 +234,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
       outDirs.push(outDir.x, outDir.y, outDir.z);
       rotAxes.push(axis.x, axis.y, axis.z);
       delays.push(delay);
-      spreadExtras.push(spreadExtra);
+      spreadExtras.push(0);
       boundsMin.push(bbMin.x, bbMin.y, bbMin.z);
       boundsMax.push(bbMax.x, bbMax.y, bbMax.z);
     };
@@ -260,6 +263,16 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
       pushVert(innerPts[j], wallNrm);
       pushVert(innerPts[i], wallNrm);
     }
+
+    cellsInfo.push({
+      pivot: pivot3.clone(),
+      outDir: outDir.clone(),
+      delay,
+      spreadExtra: 0,
+      rotAxis: axis.clone(),
+      vertexStart,
+      vertexCount: positions.length / 3 - vertexStart,
+    });
   });
 
   const geometry = new THREE.BufferGeometry();
@@ -280,4 +293,15 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   });
 
   return { geometry, seedsXY, count: cells.length, cells: cellsInfo };
+}
+
+/** Writes extra spread per cell index into the aSpreadExtra attribute and the matching cell info,
+ * so the shader and the JS mirror of it (debug labels) stay in sync. */
+export function setSpreadExtra(fracture: FractureResult, extra: Record<number, number>): void {
+  const attr = fracture.geometry.getAttribute("aSpreadExtra") as THREE.BufferAttribute;
+  fracture.cells.forEach((cell, i) => {
+    cell.spreadExtra = extra[i] ?? 0;
+    for (let v = cell.vertexStart; v < cell.vertexStart + cell.vertexCount; v++) attr.setX(v, cell.spreadExtra);
+  });
+  attr.needsUpdate = true;
 }

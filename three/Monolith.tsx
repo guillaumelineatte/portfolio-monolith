@@ -9,9 +9,12 @@ import { U } from "./uniforms";
 import { sceneRefs } from "./sceneRefs";
 import { useSceneStore } from "@/lib/store";
 import { damp, dampAngle } from "@/lib/math";
-import { buildFractureGeometry } from "./fracture";
-import { registerStone, SPREAD_PREVIEW } from "./stoneCrack";
+import { buildFractureGeometry, setSpreadExtra } from "./fracture";
+import { registerStone, SPREAD_PREVIEW, SPREAD_FULL } from "./stoneCrack";
 import { createPlaceholderTexture } from "./placeholderTexture";
+import { computeSpreadExtra, type CameraPose } from "./photoOcclusion";
+import { CAM_JITTER } from "./CameraRig";
+import { camFor } from "@/lib/camera-math";
 
 // Debug: draws each fragment's index so I can see which ones block the photo.
 // Plain DOM nodes positioned by hand every frame. drei <Text> needs to fetch a font and ~28
@@ -30,10 +33,42 @@ export const STONE_HALF = new THREE.Vector3(RADIUS, LENGTH / 2 + RADIUS, RADIUS)
 // within ~60deg of front). Idle is a small sway around this, never a full turn.
 const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
 
-// #5 and #10 still end up in front of the photo at SPREAD_FULL, push them further.
-// Added to uSpread, not multiplied (a multiplier overshoots at SPREAD_FULL).
-// Don't use depthTest:false on the photo instead, it shows through the closed stone.
-const SPREAD_EXTRA: Record<number, number> = { 5: 1.6, 10: 1.1 };
+const PHOTO_SIZE = { w: 1.0, h: 1.25 };
+
+/**
+ * Fragments still in front of the photo at SPREAD_FULL get pushed further out, computed from the
+ * geometry (photoOcclusion.ts) instead of a hand-tuned index map, which went stale every time the
+ * camera moved and pointed at the wrong cells on the 14-fragment low-end fracture.
+ * Checked from both project camera poses (narrow + wide, a low device can be either) at every
+ * corner of CameraRig's drift/parallax range.
+ * Don't use depthTest:false on the photo instead, it shows through the closed stone.
+ */
+function photoClearingExtras(fracture: ReturnType<typeof buildFractureGeometry>): Record<number, number> {
+  const stoneMatrix = new THREE.Matrix4().compose(
+    new THREE.Vector3(0, STONE_HALF.y, 0),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(BASE_TILT.x, BASE_TILT.y, BASE_TILT.z)),
+    new THREE.Vector3(1, 1, 1)
+  );
+  const poses: CameraPose[] = [];
+  for (const narrow of [false, true]) {
+    const { pos, target } = camFor({ name: "project", index: 0 }, narrow);
+    for (const sx of [-1, 0, 1])
+      for (const sy of [-1, 0, 1])
+        for (const sz of [-1, 1])
+          poses.push({
+            pos: { x: pos.x + sx * CAM_JITTER.x, y: pos.y + sy * CAM_JITTER.y, z: pos.z + sz * CAM_JITTER.z },
+            target,
+          });
+  }
+  return computeSpreadExtra({
+    fracture,
+    stoneMatrix,
+    photoCenter: new THREE.Vector3(0, STONE_HALF.y, 0),
+    photoHalf: new THREE.Vector2(PHOTO_SIZE.w / 2, PHOTO_SIZE.h / 2),
+    poses,
+    spread: SPREAD_FULL,
+  });
+}
 
 // Idle while closed: small yaw sway around BASE_TILT.y (never a full turn, another face
 // would end up in front) and a slow vertical bob.
@@ -68,18 +103,19 @@ export function Monolith() {
   const fractureCount = low ? 14 : 28;
   const stepsMax = low ? 10 : 24;
 
-  const fracture = useMemo(
-    () =>
-      buildFractureGeometry({
-        radius: RADIUS,
-        length: LENGTH,
-        count: fractureCount,
-        seed: 1337,
-        thickness: THICKNESS,
-        spreadExtra: SPREAD_EXTRA,
-      }),
-    [fractureCount]
-  );
+  const fracture = useMemo(() => {
+    const f = buildFractureGeometry({
+      radius: RADIUS,
+      length: LENGTH,
+      count: fractureCount,
+      seed: 1337,
+      thickness: THICKNESS,
+    });
+    const extras = photoClearingExtras(f);
+    setSpreadExtra(f, extras);
+    if (DEBUG_FRAGMENT_LABELS) console.info("[Monolith] spread extras", extras);
+    return f;
+  }, [fractureCount]);
 
   const material = useMemo(() => {
     const uniforms = Object.assign(
@@ -264,7 +300,7 @@ export function Monolith() {
       {/* Sibling of the stone, not a child, so it always faces the camera. LightRig billboards
           it every frame (sceneRefs.photoMesh). */}
       <mesh ref={photoRef} position={[0, STONE_HALF.y, 0]} material={photoMaterial} renderOrder={1}>
-        <planeGeometry args={[1.0, 1.25]} />
+        <planeGeometry args={[PHOTO_SIZE.w, PHOTO_SIZE.h]} />
       </mesh>
     </>
   );
