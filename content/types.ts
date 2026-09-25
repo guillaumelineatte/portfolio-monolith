@@ -14,8 +14,8 @@ export interface Project {
   /** Procedural fallback recipe (see lib/visual.ts) used until a real image is supplied. */
   visual: "waves" | "orb" | "rings" | "arches" | "strata" | "grid";
   text: string;
-  /** TODO: replace with a real photo at public/work/<slug>.avif (+ .webp/.jpg fallback). */
-  image: string;
+  /** Photo in public/work/. Optional until the real ones are in, the procedural visual is used meanwhile. */
+  image?: string;
 }
 
 export interface SiteConfig {

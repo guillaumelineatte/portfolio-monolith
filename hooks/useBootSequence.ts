@@ -56,8 +56,7 @@ export function useBootSequence(): number {
       prog(22);
       await nextFrame();
 
-      // 3 at a time. The placeholder images all 404 for now, loading them one by one with a
-      // timeout each made the loader crawl.
+      // 3 at a time, loading them one by one with a timeout each made the loader crawl.
       for (let i = 0; i < projects.length; i += 3) {
         const chunk = projects.slice(i, i + 3);
         await Promise.all(chunk.map((p, j) => preloadProjectTexture(p, i + j)));

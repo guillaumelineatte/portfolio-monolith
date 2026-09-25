@@ -48,7 +48,8 @@ export function prepareView(view: HTMLElement, reducedMotion: boolean, hasWebGL:
       g.style.opacity = "0";
     });
   } else {
-    gsap.set(view.querySelectorAll(".line-i"), { yPercent: 110 });
+    const lines = view.querySelectorAll(".line-i");
+    if (lines.length) gsap.set(lines, { yPercent: 110 });
     if (!hasWebGL) {
       view.querySelectorAll<HTMLElement>("[data-visual]").forEach((v) => {
         v.style.opacity = "0";
@@ -140,6 +141,7 @@ export function resplit(view: HTMLElement | null, reducedMotion: boolean): void 
   view.querySelectorAll<HTMLElement>("[data-split]").forEach(splitLines);
   if (reducedMotion) return;
   view.querySelectorAll<HTMLElement>("[data-group]").forEach((g) => {
-    gsap.set(g.querySelectorAll(".line-i"), { yPercent: g.dataset.revealed ? 0 : 110 });
+    const lines = g.querySelectorAll(".line-i");
+    if (lines.length) gsap.set(lines, { yPercent: g.dataset.revealed ? 0 : 110 });
   });
 }

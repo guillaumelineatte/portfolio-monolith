@@ -34,6 +34,7 @@ export function getProjectTexture(project: Project, index: number): THREE.Textur
  */
 export function preloadProjectTexture(project: Project, index: number, timeoutMs = 2500): Promise<void> {
   getProjectTexture(project, index); // ensure a fallback exists immediately
+  if (!project.image) return Promise.resolve();
 
   return new Promise((resolve) => {
     let settled = false;
@@ -64,6 +65,6 @@ export function preloadProjectTexture(project: Project, index: number, timeoutMs
       clearTimeout(timer);
       done();
     };
-    img.src = project.image;
+    img.src = project.image!;
   });
 }

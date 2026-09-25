@@ -1,6 +1,7 @@
 import type { Project } from "./types";
 
-// TODO: replace every project below with real work, and drop matching photos in public/work/.
+// TODO: replace every project below with real work, drop the photos in public/work/ and set
+// `image` on each one (e.g. image: "/work/ostrea.jpg"). Without it the procedural visual is used.
 export const projects: Project[] = [
   {
     slug: "ostrea",
@@ -11,7 +12,6 @@ export const projects: Project[] = [
     text: "An online shop for an oyster farm on the Breton coast, built around a tide that rises and falls as you scroll. Each product sits in the light of the hour at which the page is opened.",
     color: "#F2A65A",
     visual: "waves",
-    image: "/work/ostrea.jpg",
   },
   {
     slug: "nocturne",
@@ -22,7 +22,6 @@ export const projects: Project[] = [
     text: "The digital home of a light festival staged in disused industrial sites. Visitors sketch their own installation in the browser before walking into the real one.",
     color: "#E8839A",
     visual: "orb",
-    image: "/work/nocturne.jpg",
   },
   {
     slug: "atlas-des-vents",
@@ -33,7 +32,6 @@ export const projects: Project[] = [
     text: "A living map of the winds over Europe, redrawn every hour from open meteorological data. Currents are rendered as long ink strokes rather than arrows, so the weather reads like a drawing.",
     color: "#9DB8E8",
     visual: "rings",
-    image: "/work/atlas-des-vents.jpg",
   },
   {
     slug: "maison-verlaine",
@@ -44,7 +42,6 @@ export const projects: Project[] = [
     text: "A fragrance house that wanted its website to feel like opening a drawer. Slow transitions, paper textures and a single product at a time.",
     color: "#F0B6A0",
     visual: "arches",
-    image: "/work/maison-verlaine.jpg",
   },
   {
     slug: "carriere",
@@ -55,7 +52,6 @@ export const projects: Project[] = [
     text: "Portfolio for an architecture practice working with raw stone. Each building is introduced by a section drawing that extrudes into volume as you read.",
     color: "#E6B36E",
     visual: "strata",
-    image: "/work/carriere.jpg",
   },
   {
     slug: "sillage",
@@ -66,7 +62,6 @@ export const projects: Project[] = [
     text: "A configurator for a small wooden sailboat yard. The hull answers wind and swell in real time while you choose its finish.",
     color: "#7FA6D9",
     visual: "grid",
-    image: "/work/sillage.jpg",
   },
   {
     slug: "ferrum",
@@ -77,7 +72,6 @@ export const projects: Project[] = [
     text: "An archive of cast bronze from an art foundry, lit as if by the pour itself. Molten metal shaders, built to run smoothly on a phone.",
     color: "#E8764A",
     visual: "orb",
-    image: "/work/ferrum.jpg",
   },
   {
     slug: "opale",
@@ -88,7 +82,6 @@ export const projects: Project[] = [
     text: "A breathing companion whose whole interface follows the rhythm of a single slow gradient. No streaks, no scores, no notifications.",
     color: "#B9A6E0",
     visual: "rings",
-    image: "/work/opale.jpg",
   },
   {
     slug: "cendres",
@@ -99,7 +92,6 @@ export const projects: Project[] = [
     text: "An online gallery for contemporary ceramics where every piece can be turned under a raking light. Photogrammetry compressed to load in under two seconds.",
     color: "#D9A58F",
     visual: "arches",
-    image: "/work/cendres.jpg",
   },
   {
     slug: "lueur-boreale",
@@ -110,7 +102,6 @@ export const projects: Project[] = [
     text: "An aurora shown on a planetarium dome and in the browser from the same code. The sky follows the solar wind recorded the night before.",
     color: "#8FCBD0",
     visual: "waves",
-    image: "/work/lueur-boreale.jpg",
   },
   {
     slug: "tessiture",
@@ -121,7 +112,6 @@ export const projects: Project[] = [
     text: "A record label where each release has a surface you can play with the cursor. The shaders listen to the actual stems of every track.",
     color: "#D98BB8",
     visual: "grid",
-    image: "/work/tessiture.jpg",
   },
   {
     slug: "albatre",
@@ -132,7 +122,6 @@ export const projects: Project[] = [
     text: "A long-running study of translucent materials in real time: stone, wax, paper, skin. The monolith behind this page is its latest iteration.",
     color: "#F3D9B8",
     visual: "strata",
-    image: "/work/albatre.jpg",
   },
 ];
 
