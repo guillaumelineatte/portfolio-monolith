@@ -8,7 +8,7 @@ import { VS_STONE, FS_STONE, VS_PHOTO, FS_PHOTO } from "./shaders";
 import { U } from "./uniforms";
 import { sceneRefs } from "./sceneRefs";
 import { useSceneStore } from "@/lib/store";
-import { buildFractureGeometry, setSpreadExtra, spreadExpand } from "./fracture";
+import { buildFractureGeometry, copyOutDirs, setSpreadExtra, spreadExpand, type FractureDetail } from "./fracture";
 import { WAVE, MOTION_DEFINES, fragmentBaseSpread, openEased } from "./stoneMotion";
 import { registerStone, SPREAD_PREVIEW, SPREAD_FULL } from "./stoneCrack";
 import { createPlaceholderTexture } from "./placeholderTexture";
@@ -26,7 +26,6 @@ const DEBUG_FRAGMENT_LABELS = true;
 const RADIUS = 0.85;
 const LENGTH = 2.0;
 const THICKNESS = 0.2;
-const SEED_UNIFORM_SIZE = 32;
 export const STONE_HALF = new THREE.Vector3(RADIUS, LENGTH / 2 + RADIUS, RADIUS);
 
 // 2.4 rad puts fragment #21 on the back, away from every project camera angle (they stay
@@ -34,6 +33,15 @@ export const STONE_HALF = new THREE.Vector3(RADIUS, LENGTH / 2 + RADIUS, RADIUS)
 const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
 
 const PHOTO_SIZE = { w: 1.0, h: 1.25 };
+
+// Irregular breaks and curvature-following faces (fracture.ts FractureDetail). jagAmount is the
+// sideways wiggle as a share of each edge's length, capped at jagMax (object units).
+// facet flattens each face toward its own plane (knapped look), lump makes the whole surface
+// slightly irregular. `rings` is a minimum: fracture.ts adds rings (and splits long edges) where a
+// cell spans a lot of curvature. More rings everywhere cost ~12 fps with MSAA (each extra
+// triangle edge re-runs the raymarch on its pixels) for no visible gain.
+const FRACTURE_DETAIL: FractureDetail = { jagSegments: 4, jagAmount: 0.09, jagMax: 0.06, rings: 1, facet: 0.5, lump: 0.035 };
+const FRACTURE_DETAIL_LOW: FractureDetail = { jagSegments: 3, jagAmount: 0.09, jagMax: 0.06, rings: 2, facet: 0.5, lump: 0.035 };
 
 // Hand-picked extra push, on top of the automatic photo clearance below. Additive, object space.
 // Keyed by fracture cell count first: the same index is a different fragment on the 14-cell
@@ -88,7 +96,9 @@ function photoClearance(fracture: ReturnType<typeof buildFractureGeometry>): Cle
     fracture,
     stoneMatrix,
     photoCenter: new THREE.Vector3(0, STONE_HALF.y, 0),
-    photoHalf: new THREE.Vector2(PHOTO_SIZE.w / 2, PHOTO_SIZE.h / 2),
+    // Runs on the coarse fracture (straight cuts): widen the photo by the most the jagged edges
+    // can stick out so the rendered fragments still clear it.
+    photoHalf: new THREE.Vector2(PHOTO_SIZE.w / 2 + FRACTURE_DETAIL.jagMax, PHOTO_SIZE.h / 2 + FRACTURE_DETAIL.jagMax),
     preview: { poses: jitteredPoses("home"), spread: SPREAD_PREVIEW },
     full: { poses: jitteredPoses("project"), spread: SPREAD_FULL, rotScale: 1 + WAVE.rotBoost },
     deflectAbove: DEFLECT_ABOVE,
@@ -107,16 +117,6 @@ const IDLE_BOB_FREQ = 0.22;
 const IDLE_FADE_OUT = 0.9;
 const IDLE_FADE_IN = 2.5;
 
-function seedsToVectorArray(seedsXY: Float32Array): THREE.Vector2[] {
-  const arr: THREE.Vector2[] = [];
-  for (let i = 0; i < SEED_UNIFORM_SIZE; i++) {
-    const x = seedsXY[i * 2] ?? 0;
-    const y = seedsXY[i * 2 + 1] ?? 0;
-    arr.push(new THREE.Vector2(x, y));
-  }
-  return arr;
-}
-
 const labelScratch = new THREE.Vector3();
 
 export function Monolith() {
@@ -133,14 +133,14 @@ export function Monolith() {
   const stepsMax = low ? 10 : 24;
 
   const fracture = useMemo(() => {
-    const f = buildFractureGeometry({
-      radius: RADIUS,
-      length: LENGTH,
-      count: fractureCount,
-      seed: 1337,
-      thickness: THICKNESS,
-    });
-    const clearance = photoClearance(f);
+    const base = { radius: RADIUS, length: LENGTH, count: fractureCount, seed: 1337, thickness: THICKNESS };
+    // The photo check runs on the coarse build (same cells, a fraction of the triangles), its
+    // result is then applied to the detailed one that's actually rendered.
+    const coarse = buildFractureGeometry(base);
+    const clearance = photoClearance(coarse);
+    const f = buildFractureGeometry({ ...base, detail: low ? FRACTURE_DETAIL_LOW : FRACTURE_DETAIL });
+    copyOutDirs(coarse, f);
+    coarse.geometry.dispose();
     setSpreadExtra(
       f,
       addExtras(clearance.extra, SPREAD_EXTRA_MANUAL[fractureCount]),
@@ -148,7 +148,7 @@ export function Monolith() {
     );
     if (DEBUG_FRAGMENT_LABELS) console.info("[Monolith] photo clearance", clearance);
     return f;
-  }, [fractureCount]);
+  }, [fractureCount, low]);
 
   const material = useMemo(() => {
     const uniforms = Object.assign(
@@ -168,8 +168,6 @@ export function Monolith() {
         uWaveFrom: { value: SPREAD_PREVIEW },
         uWaveTo: { value: SPREAD_PREVIEW },
         uWaveT: { value: 0 },
-        uSeeds: { value: seedsToVectorArray(fracture.seedsXY) },
-        uSeedCount: { value: fracture.count },
       },
       U
     );
@@ -181,7 +179,7 @@ export function Monolith() {
       // ~28 hand-built prisms, one bad winding would leave a hole. DoubleSide is cheap here.
       side: THREE.DoubleSide,
     });
-  }, [fracture, stepsMax, low]);
+  }, [stepsMax, low]);
 
   const photoMaterial = useMemo(() => {
     const placeholder = createPlaceholderTexture();

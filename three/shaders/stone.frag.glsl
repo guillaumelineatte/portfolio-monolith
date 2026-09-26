@@ -1,8 +1,6 @@
 uniform vec3 uCamObj; uniform vec3 uLightObj; uniform vec3 uHalf; uniform float uGain;
 uniform int uSteps;
 uniform float uCrack;
-uniform vec2 uSeeds[32];
-uniform int uSeedCount;
 
 // Broken-stone look (see main). Diffuse strength vs the skin's 0.28, how far light wraps past the
 // terminator, share of the volumetric interior still showing through, glint strength.
@@ -61,7 +59,11 @@ float ggxD(float nh, float a){
 }
 varying vec3 vObj; varying vec3 vNrm; varying vec3 vWorld;
 varying vec3 vBoundsMin; varying vec3 vBoundsMax;
-varying float vFace; // fracture.ts FACE_*: 0 polished outer skin, 1/2 freshly broken (inner face, cut walls)
+varying float vFace;
+// Distance to this fragment's own (jagged) outline, unrolled units (fracture.ts aEdgeDist): the
+// cracks that glow with uCrack. Replaces a per-pixel nearest-two-seeds loop that could only draw
+// straight bisectors.
+varying float vEdgeDist; // fracture.ts FACE_*: 0 polished outer skin, 1/2 freshly broken (inner face, cut walls)
 
 float boxExit(vec3 ro, vec3 rd, vec3 hb){
   vec3 s = step(0.0, rd) * 2.0 - 1.0;
@@ -76,25 +78,12 @@ vec3 palette(float t){
   return t < 1.0 ? mix(amber, rose, smoothstep(0.0, 1.0, t)) : mix(rose, blue, smoothstep(1.0, 2.0, t));
 }
 
-/** Inverse of the unroll in fracture.ts (phi*radius, y), to find the closest cell per pixel. */
+/** Inverse of the unroll in fracture.ts (phi*radius, y). */
 vec2 toUnrolled(vec3 p){
   float phi = atan(p.z, p.x);
   return vec2(phi * uHalf.x, p.y);
 }
 
-/** Approx distance to the nearest Voronoi edge (~0 on the bisector). These are the cracks
-    that glow with uCrack. */
-float voronoiEdge(vec3 p){
-  vec2 uv = toUnrolled(p);
-  float jitter = snoise(p * 3.0) * 0.035;
-  float d1 = 1e9; float d2 = 1e9;
-  for (int i = 0; i < 32; i++){
-    if (i >= uSeedCount) break;
-    float d = distance(uv, uSeeds[i]) + jitter;
-    if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
-  }
-  return (d2 - d1) * 0.5;
-}
 
 void main(){
   vec3 ro = vObj;
@@ -143,7 +132,7 @@ void main(){
   float raw = step(0.5, vFace);
 
   // Polished outer skin.
-  float edgeDist = voronoiEdge(ro);
+  float edgeDist = vEdgeDist;
   float edge = 1.0 - smoothstep(0.0, 0.035, edgeDist);
   vec3 alab = vec3(0.82, 0.77, 0.70);
   vec3 nb = raw > 0.5 ? n : bumpNormal(n, ro);
