@@ -7,6 +7,7 @@ import skyVertBody from "./sky.vert.glsl";
 import skyFragBody from "./sky.frag.glsl";
 import worldVertBody from "./world.vert.glsl";
 import groundFragBody from "./ground.frag.glsl";
+import groundVertBody from "./ground.vert.glsl";
 import stoneVertBody from "./stone.vert.glsl";
 import stoneFragBody from "./stone.frag.glsl";
 import uvVertBody from "./uv.vert.glsl";
@@ -31,6 +32,7 @@ export const FS_SKY = PRE + skyFragBody;
 
 export const VS_WORLD = worldVertBody;
 export const FS_GROUND = PRE + groundFragBody;
+export const VS_GROUND = chunkCommon + chunkNoise + groundVertBody;
 
 export const VS_STONE = stoneVertBody;
 export const FS_STONE = PRE + stoneFragBody;

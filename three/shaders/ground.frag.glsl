@@ -1,7 +1,11 @@
 varying vec3 vWorld;
+varying vec3 vNormal;
 // Sand ripples: spatial frequency along the wind and how much low sun they catch.
 #define RIPPLE_FREQ 7.0
 #define RIPPLE_LIGHT 0.8
+// Dune shading: low sun on the slopes facing it, sky on the tops.
+#define DUNE_SUN 0.9
+#define DUNE_SKY 0.6
 void main(){
   vec3 v = vWorld - uCamPos; float dist = length(v); vec3 dir = v / dist;
   vec3 hor = skyColor(normalize(vec3(dir.x, 0.0, dir.z) + vec3(1e-5)));
@@ -14,6 +18,13 @@ void main(){
   float r = length(vWorld.xz + ld * 0.9);
   float spill = exp(-r * 1.3) * 0.55 + exp(-r * 0.45) * 0.08;
   vec3 col = base + uLightColor * spill * uIntensity;
+  // Dune slopes: faces toward the low sun lit, the others in shade, tops catching the sky. Only
+  // where there are dunes (same radii as ground.vert.glsl), the flat floor near the stone keeps
+  // its look.
+  vec3 dn = normalize(vNormal);
+  vec3 sandAlb = vec3(0.34, 0.26, 0.22);
+  float duneSun = max(dot(dn, normalize(uLightDir)), 0.0);
+  col += sandAlb * (uLightColor * duneSun * DUNE_SUN + mix(vec3(0.3, 0.15, 0.19), vec3(0.05, 0.045, 0.11), 0.6) * (0.22 + 0.78 * uIntensity) * DUNE_SKY * dn.y) * uIntensity * smoothstep(12.0, 30.0, length(vWorld.xz));
   // Wind ripples in the sand under the low sun: slopes facing the light brighter, the others in
   // shade, faded out with distance before they alias. Plus a fine grain up close.
   vec2 wind = normalize(vec2(0.8, 0.6));
