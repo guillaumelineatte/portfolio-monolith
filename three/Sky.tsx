@@ -5,9 +5,11 @@ import * as THREE from "three";
 import { VS_SKY, FS_SKY } from "./shaders";
 import { U } from "./uniforms";
 import { sceneRefs } from "./sceneRefs";
+import { useSceneStore } from "@/lib/store";
 
 export function Sky() {
   const ref = useRef<THREE.Mesh>(null);
+  const low = useSceneStore((s) => s.low);
 
   const material = useMemo(
     () =>
@@ -17,8 +19,10 @@ export function Sky() {
         fragmentShader: FS_SKY,
         side: THREE.BackSide,
         depthWrite: false,
+        // Fewer cloud octaves and no self-shadow sample on low-end (sky.frag.glsl).
+        defines: low ? { LOW_QUALITY: "" } : {},
       }),
-    []
+    [low]
   );
 
   useEffect(() => {
