@@ -3,8 +3,19 @@ uniform int uSteps;
 uniform float uCrack;
 uniform vec2 uSeeds[32];
 uniform int uSeedCount;
+
+// Broken-stone look (see main). Diffuse strength vs the skin's 0.28, how far light wraps past the
+// terminator, share of the volumetric interior still showing through, glint strength.
+#define RAW_DIFFUSE 0.62
+#define RAW_WRAP 0.25
+// How much of the route's light colour tints the broken stone (1 = fully, like the skin). Lower
+// keeps fresh breaks paler than the weathered skin.
+#define RAW_TINT 0.6
+#define RAW_VOLUME 0.55
+#define RAW_GLINT 0.7
 varying vec3 vObj; varying vec3 vNrm; varying vec3 vWorld;
 varying vec3 vBoundsMin; varying vec3 vBoundsMax;
+varying float vFace; // fracture.ts FACE_*: 0 polished outer skin, 1/2 freshly broken (inner face, cut walls)
 
 float boxExit(vec3 ro, vec3 rd, vec3 hb){
   vec3 s = step(0.0, rd) * 2.0 - 1.0;
@@ -74,18 +85,37 @@ void main(){
   vec3 vol = acc * uLightColor * uGain * uIntensity + acc * vec3(0.05, 0.045, 0.07);
 
   float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+  float back = clamp(c * 0.5 + 0.5, 0.0, 1.0);
+  float raw = step(0.5, vFace);
+
+  // Polished outer skin.
   float edgeDist = voronoiEdge(ro);
   float edge = 1.0 - smoothstep(0.0, 0.035, edgeDist);
-
   vec3 alab = vec3(0.82, 0.77, 0.70);
   float ndl = max(dot(n, L), 0.0);
   vec3 surf = alab * (vec3(0.035, 0.032, 0.05) + uLightColor * ndl * 0.28) * uIntensity;
   surf = mix(surf, surf * 0.4, edge * 0.7);
+  vec3 skin = surf + vol;
+  skin += uLightColor * uIntensity * (fres * back * 0.35);
+  skin += uLightColor * uIntensity * edge * uCrack * 1.6;
 
-  float back = clamp(c * 0.5 + 0.5, 0.0, 1.0);
-  vec3 col = surf + vol;
-  col += uLightColor * uIntensity * (fres * back * 0.35);
-  col += uLightColor * uIntensity * edge * uCrack * 1.6;
+  // Freshly broken stone (inner face + cut walls): paler, chalky, wrap-lit so it doesn't go
+  // black away from the light, fine grain and sparse crystalline glints. The crack glow above
+  // can't apply here: every point of a cut wall sits on a cell boundary, so it lit whole walls
+  // flat orange. Only the burst's flare (uCrack > 1) warms them briefly.
+  float grain = snoise(ro * 34.0) * 0.5 + 0.5;
+  float grainFine = snoise(ro * 97.0) * 0.5 + 0.5;
+  vec3 rawAlb = vec3(0.93, 0.90, 0.85) * (0.8 + 0.2 * grain) * (0.9 + 0.1 * grainFine);
+  float wrap = clamp((dot(n, L) + RAW_WRAP) / (1.0 + RAW_WRAP), 0.0, 1.0);
+  vec3 rawLight = mix(vec3(dot(uLightColor, vec3(0.299, 0.587, 0.114))), uLightColor, RAW_TINT);
+  vec3 rawSurf = rawAlb * (vec3(0.07, 0.068, 0.09) + rawLight * wrap * RAW_DIFFUSE) * uIntensity;
+  vec3 hv = normalize(L - rd);
+  float glint = smoothstep(0.72, 0.92, snoise(ro * 61.0)) * pow(max(dot(n, hv), 0.0), 6.0);
+  vec3 broken = rawSurf + vol * RAW_VOLUME;
+  broken += uLightColor * uIntensity * glint * RAW_GLINT;
+  broken += uLightColor * uIntensity * max(uCrack - 1.0, 0.0) * 0.9;
+
+  vec3 col = mix(skin, broken, raw);
   col *= mix(0.55, 1.0, smoothstep(0.0, 0.5, vObj.y + uHalf.y));
   col = applyMist(col, vWorld, length(vWorld - uCamPos));
   gl_FragColor = vec4(col, 1.0);

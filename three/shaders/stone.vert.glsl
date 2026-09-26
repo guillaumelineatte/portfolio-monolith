@@ -19,6 +19,8 @@ attribute float aSpreadExtra;
 attribute float aSpreadExtraFull;
 attribute vec3 aBoundsMin;
 attribute vec3 aBoundsMax;
+attribute float aFaceType;
+varying float vFace;
 varying vec3 vObj;
 varying vec3 vNrm;
 varying vec3 vWorld;
@@ -53,6 +55,7 @@ void main(){
   vObj = position;
   vBoundsMin = aBoundsMin;
   vBoundsMax = aBoundsMax;
+  vFace = aFaceType;
 
   float eased = fragEase(staggerLocal(uOpen, OPEN_STAGGER));
 

@@ -7,6 +7,12 @@ import * as THREE from "three";
  * animation, see three/shaders/stone.*.glsl.
  */
 
+/** aFaceType values: the polished outer skin, and the two kinds of freshly broken surface (the
+ * prism's inner face and its cut walls), which stone.frag.glsl shades as raw stone. */
+export const FACE_OUTER = 0;
+export const FACE_INNER = 1;
+export const FACE_WALL = 2;
+
 export interface FractureParams {
   radius: number;
   length: number; // cylindrical section length (excludes the hemispherical caps)
@@ -198,6 +204,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   const spreadExtras: number[] = [];
   const boundsMin: number[] = [];
   const boundsMax: number[] = [];
+  const faceTypes: number[] = [];
   const cellsInfo: FractureCellInfo[] = [];
 
   cells.forEach(({ seed: s, poly }) => {
@@ -229,7 +236,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
     const vertexStart = positions.length / 3;
 
     const n = poly.length;
-    const pushVert = (p: THREE.Vector3, nrm: THREE.Vector3) => {
+    const pushVert = (p: THREE.Vector3, nrm: THREE.Vector3, face: number) => {
       positions.push(p.x, p.y, p.z);
       normals.push(nrm.x, nrm.y, nrm.z);
       pivots.push(pivot3.x, pivot3.y, pivot3.z);
@@ -239,17 +246,18 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
       spreadExtras.push(0);
       boundsMin.push(bbMin.x, bbMin.y, bbMin.z);
       boundsMax.push(bbMax.x, bbMax.y, bbMax.z);
+      faceTypes.push(face);
     };
 
     for (let i = 1; i < n - 1; i++) {
-      pushVert(outerPts[0], outerNormals[0]);
-      pushVert(outerPts[i], outerNormals[i]);
-      pushVert(outerPts[i + 1], outerNormals[i + 1]);
+      pushVert(outerPts[0], outerNormals[0], FACE_OUTER);
+      pushVert(outerPts[i], outerNormals[i], FACE_OUTER);
+      pushVert(outerPts[i + 1], outerNormals[i + 1], FACE_OUTER);
     }
     for (let i = 1; i < n - 1; i++) {
-      pushVert(innerPts[0], outerNormals[0].clone().negate());
-      pushVert(innerPts[i + 1], outerNormals[i + 1].clone().negate());
-      pushVert(innerPts[i], outerNormals[i].clone().negate());
+      pushVert(innerPts[0], outerNormals[0].clone().negate(), FACE_INNER);
+      pushVert(innerPts[i + 1], outerNormals[i + 1].clone().negate(), FACE_INNER);
+      pushVert(innerPts[i], outerNormals[i].clone().negate(), FACE_INNER);
     }
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n;
@@ -258,12 +266,12 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
         .sub(outerPts[i])
         .cross(innerPts[i].clone().sub(outerPts[i]))
         .normalize();
-      pushVert(outerPts[i], wallNrm);
-      pushVert(outerPts[j], wallNrm);
-      pushVert(innerPts[j], wallNrm);
-      pushVert(outerPts[i], wallNrm);
-      pushVert(innerPts[j], wallNrm);
-      pushVert(innerPts[i], wallNrm);
+      pushVert(outerPts[i], wallNrm, FACE_WALL);
+      pushVert(outerPts[j], wallNrm, FACE_WALL);
+      pushVert(innerPts[j], wallNrm, FACE_WALL);
+      pushVert(outerPts[i], wallNrm, FACE_WALL);
+      pushVert(innerPts[j], wallNrm, FACE_WALL);
+      pushVert(innerPts[i], wallNrm, FACE_WALL);
     }
 
     cellsInfo.push({
@@ -289,6 +297,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   geometry.setAttribute("aSpreadExtraFull", new THREE.Float32BufferAttribute(spreadExtras.slice(), 1));
   geometry.setAttribute("aBoundsMin", new THREE.Float32BufferAttribute(boundsMin, 3));
   geometry.setAttribute("aBoundsMax", new THREE.Float32BufferAttribute(boundsMax, 3));
+  geometry.setAttribute("aFaceType", new THREE.Float32BufferAttribute(faceTypes, 1));
 
   const seedsXY = new Float32Array(cells.length * 2);
   cells.forEach(({ seed: s }, i) => {
