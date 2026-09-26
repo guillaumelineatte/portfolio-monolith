@@ -252,8 +252,8 @@ export function closeStone(reducedMotion: boolean): void {
   const fromFull = stoneU.uSpread.value > (SPREAD_PREVIEW + SPREAD_FULL) / 2;
   // uReveal uses the same duration, otherwise the photo faded out before the fragments closed
   // and the stone looked empty. uOpen is linear (easing is per fragment, stoneMotion.ts): from a
-  // hover it takes OPEN.closeDuration, from a project page it matches the 6.5s camera move.
-  const openDuration = (fromFull ? 6.5 : OPEN.closeDuration) * stoneU.uOpen.value;
+  // hover it closes at the opening's pace, from a project page it matches the 6.5s camera move.
+  const openDuration = (fromFull ? 6.5 : OPEN.duration) * stoneU.uOpen.value;
   currentIdx = -1;
   spreadTarget = -1;
 

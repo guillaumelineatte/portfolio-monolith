@@ -16,9 +16,6 @@ export const OPEN = {
   stagger: 0.4,
   /** Seconds for a full 0 -> 1 open (linear uOpen). */
   duration: 3.2,
-  /** Seconds for a full 1 -> 0 close from a hover (closing from a project page follows its 6.5s
-   * camera move instead, see stoneCrack.ts closeStone). */
-  closeDuration: 2.4,
 };
 
 /** Preview -> full burst on opening a project (uWaveT 0 -> 1, see stoneCrack.ts burstTo). */
