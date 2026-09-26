@@ -2,34 +2,21 @@ import * as THREE from "three";
 import type { FractureResult } from "./fracture";
 
 /**
- * Works out which fragments still sit in front of the revealed photo once fully open, and how much
- * extra spread each one needs to clear it. Replaces the hand-tuned per-index map, which went stale
- * whenever the camera moved and never matched the low-end 14-cell fracture (different cells behind
- * the same indices).
+ * Keeps the fragments out of the revealed photo. Replaces the hand-tuned per-index map, which went
+ * stale whenever the camera moved and never matched the low-end 14-cell fracture (different cells
+ * behind the same indices).
  *
  * Exact test, no bounding volumes: every triangle of a fragment is put at its fully-open pose (same
  * math as stone.vert.glsl with eased = 1), projected from each camera position onto the photo's
- * billboard plane, and checked against the photo rectangle. The extra is searched in `step`
- * increments until no pose sees an overlap. It's ADDITIVE, so a value found at the full spread
- * doesn't overshoot at the smaller preview spread.
+ * billboard plane, and checked against the photo rectangle. Two stages are solved per fragment
+ * (home hover at the preview spread, project page at the full spread), each for the smallest
+ * ADDITIVE extra push that clears it. A fragment that would need too much (or can't be cleared at
+ * all, it travels toward the camera rather than out of the way) is re-aimed sideways instead.
  */
 
 export interface CameraPose {
   pos: THREE.Vector3Like;
   target: THREE.Vector3Like;
-}
-
-export interface OcclusionParams {
-  fracture: FractureResult;
-  /** Stone mesh world matrix at its open pose (idle sway snapped back to BASE_TILT). No scale. */
-  stoneMatrix: THREE.Matrix4;
-  /** Photo billboard center (world) and half extents. */
-  photoCenter: THREE.Vector3;
-  photoHalf: THREE.Vector2;
-  poses: CameraPose[];
-  spread: number;
-  step?: number;
-  maxExtra?: number;
 }
 
 const NEAR = 0.1;
@@ -102,49 +89,151 @@ function coversPhoto(world: Float32Array, f: Frame, hx: number, hy: number): boo
   return false;
 }
 
-export function computeSpreadExtra(params: OcclusionParams): Record<number, number> {
-  const { fracture, stoneMatrix, photoCenter, photoHalf, poses, spread, step = 0.05, maxExtra = 3 } = params;
-  const frames = poses.map((p) => makeFrame(p, photoCenter));
+/** A cell's fully-open triangles (rest pose + open rotation about its pivot) in world space,
+ * before any outward translation, plus their centroid. */
+function openPoseWorld(fracture: FractureResult, cellIndex: number, stoneMatrix: THREE.Matrix4) {
+  const cell = fracture.cells[cellIndex];
   const pos = fracture.geometry.getAttribute("position");
-  const out: Record<number, number> = {};
-
-  const axis = new THREE.Vector3();
-  const dir = new THREE.Vector3();
+  const angle = cell.rotAxis.length();
+  const axis = cell.rotAxis.clone().normalize();
+  const base = new Float32Array(cell.vertexCount * 3);
+  const centroid = new THREE.Vector3();
   const p = new THREE.Vector3();
+  for (let v = 0; v < cell.vertexCount; v++) {
+    p.fromBufferAttribute(pos, cell.vertexStart + v)
+      .sub(cell.pivot)
+      .applyAxisAngle(axis, angle)
+      .add(cell.pivot)
+      .applyMatrix4(stoneMatrix);
+    base[v * 3] = p.x;
+    base[v * 3 + 1] = p.y;
+    base[v * 3 + 2] = p.z;
+    centroid.add(p);
+  }
+  centroid.divideScalar(Math.max(1, cell.vertexCount));
+  return { base, centroid };
+}
 
-  fracture.cells.forEach((cell, i) => {
-    // Rest pose rotated about the pivot (the open rotation), then into world space. Only the
-    // outward translation depends on the extra, so it's added per iteration below.
-    const angle = cell.rotAxis.length();
-    axis.copy(cell.rotAxis).normalize();
-    const base = new Float32Array(cell.vertexCount * 3);
-    for (let v = 0; v < cell.vertexCount; v++) {
-      p.fromBufferAttribute(pos, cell.vertexStart + v)
-        .sub(cell.pivot)
-        .applyAxisAngle(axis, angle)
-        .add(cell.pivot)
-        .applyMatrix4(stoneMatrix);
-      base[v * 3] = p.x;
-      base[v * 3 + 1] = p.y;
-      base[v * 3 + 2] = p.z;
+/** Smallest extra (in `step` increments) that clears the photo from every frame, or null if
+ * nothing up to `maxExtra` does (the fragment travels toward the camera, not out of its way). */
+function extraForCell(
+  fracture: FractureResult,
+  cellIndex: number,
+  stoneMatrix: THREE.Matrix4,
+  frames: Frame[],
+  photoHalf: THREE.Vector2,
+  spread: number,
+  step: number,
+  maxExtra: number
+): number | null {
+  const { base } = openPoseWorld(fracture, cellIndex, stoneMatrix);
+  const dir = fracture.cells[cellIndex].outDir.clone().transformDirection(stoneMatrix);
+  const world = new Float32Array(base.length);
+  const blocked = (extra: number) => {
+    const d = spread + extra;
+    for (let k = 0; k < base.length; k += 3) {
+      world[k] = base[k] + dir.x * d;
+      world[k + 1] = base[k + 1] + dir.y * d;
+      world[k + 2] = base[k + 2] + dir.z * d;
     }
-    dir.copy(cell.outDir).transformDirection(stoneMatrix);
+    return frames.some((f) => coversPhoto(world, f, photoHalf.x, photoHalf.y));
+  };
+  let extra = 0;
+  while (extra <= maxExtra && blocked(extra)) extra += step;
+  return extra > maxExtra ? null : Math.round(extra * 100) / 100;
+}
 
-    const world = new Float32Array(base.length);
-    const blocked = (extra: number) => {
-      const d = spread + extra;
-      for (let k = 0; k < base.length; k += 3) {
-        world[k] = base[k] + dir.x * d;
-        world[k + 1] = base[k + 1] + dir.y * d;
-        world[k + 2] = base[k + 2] + dir.z * d;
-      }
-      return frames.some((f) => coversPhoto(world, f, photoHalf.x, photoHalf.y));
-    };
+/**
+ * Re-aims a fragment's outward direction so it slides sideways out of the photo instead of
+ * toward the camera: the part of (centroid - photo) perpendicular to the camera axis, i.e. straight
+ * away from the photo on screen. Rewrites both the cell info and its aOutDir attribute.
+ */
+function deflectSideways(
+  fracture: FractureResult,
+  cellIndex: number,
+  stoneMatrix: THREE.Matrix4,
+  camPos: THREE.Vector3,
+  photoCenter: THREE.Vector3
+): void {
+  const cell = fracture.cells[cellIndex];
+  const { centroid } = openPoseWorld(fracture, cellIndex, stoneMatrix);
+  const viewAxis = camPos.clone().sub(photoCenter).normalize();
+  const side = centroid.sub(photoCenter);
+  side.addScaledVector(viewAxis, -side.dot(viewAxis));
+  if (side.lengthSq() < 1e-6) {
+    // Dead center: fall back to its own direction minus the camera-facing part.
+    side.copy(cell.outDir).transformDirection(stoneMatrix);
+    side.addScaledVector(viewAxis, -side.dot(viewAxis));
+  }
+  const inv = new THREE.Matrix4().copy(stoneMatrix).invert();
+  cell.outDir.copy(side).transformDirection(inv);
 
-    let extra = 0;
-    while (extra < maxExtra && blocked(extra)) extra += step;
-    if (extra > 0) out[i] = Math.round(extra * 100) / 100;
+  const attr = fracture.geometry.getAttribute("aOutDir") as THREE.BufferAttribute;
+  for (let v = cell.vertexStart; v < cell.vertexStart + cell.vertexCount; v++) {
+    attr.setXYZ(v, cell.outDir.x, cell.outDir.y, cell.outDir.z);
+  }
+  attr.needsUpdate = true;
+}
+
+export interface ClearanceStage {
+  poses: CameraPose[];
+  spread: number;
+}
+
+export interface ClearanceParams {
+  fracture: FractureResult;
+  stoneMatrix: THREE.Matrix4;
+  photoCenter: THREE.Vector3;
+  photoHalf: THREE.Vector2;
+  /** Home hover (SPREAD_PREVIEW, home camera) and project page (SPREAD_FULL, project camera). */
+  preview: ClearanceStage;
+  full: ClearanceStage;
+  step?: number;
+  maxExtra?: number;
+  /** Past this much extra push, re-aim sideways instead: a fragment flying that much further than
+   * its neighbours reads as a glitch. */
+  deflectAbove?: number;
+}
+
+export interface ClearanceResult {
+  /** Always applied (aSpreadExtra): clears the photo at the preview stage. */
+  extra: Record<number, number>;
+  /** Added on top once fully open (aSpreadExtraFull), only what the full stage needs beyond
+   * `extra`, never negative so no fragment moves back in between hover and project page. */
+  extraFull: Record<number, number>;
+  /** Cells no reasonable push could clear, re-aimed sideways by deflectSideways(). */
+  deflected: number[];
+}
+
+/**
+ * Per fragment: find the push each stage needs; if one can't be cleared at all, re-aim the
+ * fragment sideways (mutates the fracture's aOutDir) and search again.
+ */
+export function solveFragmentClearance(params: ClearanceParams): ClearanceResult {
+  const { fracture, stoneMatrix, photoCenter, photoHalf, preview, full, step = 0.05, maxExtra = 3 } = params;
+  const deflectAbove = params.deflectAbove ?? maxExtra;
+  const stages = [preview, full].map((s) => ({ ...s, frames: s.poses.map((p) => makeFrame(p, photoCenter)) }));
+  const result: ClearanceResult = { extra: {}, extraFull: {}, deflected: [] };
+
+  fracture.cells.forEach((_cell, i) => {
+    const solve = () =>
+      stages.map((s) => extraForCell(fracture, i, stoneMatrix, s.frames, photoHalf, s.spread, step, maxExtra));
+    let [ePrev, eFull] = solve();
+    const tooFar = (e: number | null) => e === null || e > deflectAbove;
+    const stuck = tooFar(ePrev) ? stages[0] : tooFar(eFull) ? stages[1] : null;
+    if (stuck) {
+      const camAvg = new THREE.Vector3();
+      for (const p of stuck.poses) camAvg.add(p.pos);
+      camAvg.divideScalar(stuck.poses.length);
+      deflectSideways(fracture, i, stoneMatrix, camAvg, photoCenter);
+      result.deflected.push(i);
+      [ePrev, eFull] = solve();
+    }
+    const a = ePrev ?? maxExtra;
+    const b = eFull ?? maxExtra;
+    if (a > 0) result.extra[i] = a;
+    if (b > a) result.extraFull[i] = Math.round((b - a) * 100) / 100;
   });
 
-  return out;
+  return result;
 }

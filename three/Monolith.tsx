@@ -12,7 +12,7 @@ import { damp, dampAngle } from "@/lib/math";
 import { buildFractureGeometry, setSpreadExtra, spreadExpand } from "./fracture";
 import { registerStone, SPREAD_PREVIEW, SPREAD_FULL } from "./stoneCrack";
 import { createPlaceholderTexture } from "./placeholderTexture";
-import { computeSpreadExtra, type CameraPose } from "./photoOcclusion";
+import { solveFragmentClearance, type CameraPose, type ClearanceResult } from "./photoOcclusion";
 import { CAM_JITTER } from "./CameraRig";
 import { camFor } from "@/lib/camera-math";
 
@@ -35,15 +35,18 @@ const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
 
 const PHOTO_SIZE = { w: 1.0, h: 1.25 };
 
-// Hand-picked extra push, on top of the automatic photo-clearing extras below. Additive, object
-// space. Keyed by fracture cell count first: the same index is a different fragment on the 14-cell
-// low-end fracture.
+// Hand-picked extra push, on top of the automatic photo clearance below. Additive, object space.
+// Keyed by fracture cell count first: the same index is a different fragment on the 14-cell
+// low-end fracture. Empty for now, the automatic clearance handles 5/15 (the ones that used to need
+// a manual push).
 // SPREAD_EXTRA_MANUAL applies in every open state (home hover preview and project page).
 // SPREAD_EXTRA_FULL only once a project page is open (fades in between SPREAD_PREVIEW and SPREAD_FULL).
-const SPREAD_EXTRA_MANUAL: Record<number, Record<number, number>> = {
-  28: { 5: 0.5, 15: 0.5 },
-};
+const SPREAD_EXTRA_MANUAL: Record<number, Record<number, number>> = {};
 const SPREAD_EXTRA_FULL: Record<number, Record<number, number>> = {};
+
+// A fragment that would need more than this extra push to clear the photo slides sideways instead
+// (photoOcclusion.ts's deflectSideways), rather than flying far beyond its neighbours.
+const DEFLECT_ABOVE = 1.0;
 
 function addExtras(a: Record<number, number>, b: Record<number, number> = {}): Record<number, number> {
   const out = { ...a };
@@ -51,23 +54,12 @@ function addExtras(a: Record<number, number>, b: Record<number, number> = {}): R
   return out;
 }
 
-/**
- * Fragments still in front of the photo at SPREAD_FULL get pushed further out, computed from the
- * geometry (photoOcclusion.ts) instead of a hand-tuned index map, which went stale every time the
- * camera moved and pointed at the wrong cells on the 14-fragment low-end fracture.
- * Checked from both project camera poses (narrow + wide, a low device can be either) at every
- * corner of CameraRig's drift/parallax range.
- * Don't use depthTest:false on the photo instead, it shows through the closed stone.
- */
-function photoClearingExtras(fracture: ReturnType<typeof buildFractureGeometry>): Record<number, number> {
-  const stoneMatrix = new THREE.Matrix4().compose(
-    new THREE.Vector3(0, STONE_HALF.y, 0),
-    new THREE.Quaternion().setFromEuler(new THREE.Euler(BASE_TILT.x, BASE_TILT.y, BASE_TILT.z)),
-    new THREE.Vector3(1, 1, 1)
-  );
+/** Both project (or home) camera poses, narrow + wide (a low device can be either), at every
+ * corner of CameraRig's drift/parallax range. */
+function jitteredPoses(name: "home" | "project"): CameraPose[] {
   const poses: CameraPose[] = [];
   for (const narrow of [false, true]) {
-    const { pos, target } = camFor({ name: "project", index: 0 }, narrow);
+    const { pos, target } = camFor({ name, index: name === "project" ? 0 : -1 }, narrow);
     for (const sx of [-1, 0, 1])
       for (const sy of [-1, 0, 1])
         for (const sz of [-1, 1])
@@ -76,13 +68,30 @@ function photoClearingExtras(fracture: ReturnType<typeof buildFractureGeometry>)
             target,
           });
   }
-  return computeSpreadExtra({
+  return poses;
+}
+
+/**
+ * Keeps fragments out of the photo, computed from the geometry (photoOcclusion.ts) instead of a
+ * hand-tuned index map, which went stale every time the camera moved and pointed at the wrong
+ * cells on the 14-fragment low-end fracture. Two stages: home hover (home camera, SPREAD_PREVIEW)
+ * and project page (project camera, SPREAD_FULL). Mutates aOutDir for re-aimed fragments.
+ * Don't use depthTest:false on the photo instead, it shows through the closed stone.
+ */
+function photoClearance(fracture: ReturnType<typeof buildFractureGeometry>): ClearanceResult {
+  const stoneMatrix = new THREE.Matrix4().compose(
+    new THREE.Vector3(0, STONE_HALF.y, 0),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(BASE_TILT.x, BASE_TILT.y, BASE_TILT.z)),
+    new THREE.Vector3(1, 1, 1)
+  );
+  return solveFragmentClearance({
     fracture,
     stoneMatrix,
     photoCenter: new THREE.Vector3(0, STONE_HALF.y, 0),
     photoHalf: new THREE.Vector2(PHOTO_SIZE.w / 2, PHOTO_SIZE.h / 2),
-    poses,
-    spread: SPREAD_FULL,
+    preview: { poses: jitteredPoses("home"), spread: SPREAD_PREVIEW },
+    full: { poses: jitteredPoses("project"), spread: SPREAD_FULL },
+    deflectAbove: DEFLECT_ABOVE,
   });
 }
 
@@ -127,9 +136,13 @@ export function Monolith() {
       seed: 1337,
       thickness: THICKNESS,
     });
-    const extras = addExtras(photoClearingExtras(f), SPREAD_EXTRA_MANUAL[fractureCount]);
-    setSpreadExtra(f, extras, SPREAD_EXTRA_FULL[fractureCount]);
-    if (DEBUG_FRAGMENT_LABELS) console.info("[Monolith] spread extras", extras);
+    const clearance = photoClearance(f);
+    setSpreadExtra(
+      f,
+      addExtras(clearance.extra, SPREAD_EXTRA_MANUAL[fractureCount]),
+      addExtras(clearance.extraFull, SPREAD_EXTRA_FULL[fractureCount])
+    );
+    if (DEBUG_FRAGMENT_LABELS) console.info("[Monolith] photo clearance", clearance);
     return f;
   }, [fractureCount]);
 
