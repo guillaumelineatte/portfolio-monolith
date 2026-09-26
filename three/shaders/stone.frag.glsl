@@ -11,6 +11,8 @@ uniform float uCrack;
 #define RAW_TINT 0.6
 #define RAW_VOLUME 0.55
 #define RAW_GLINT 0.7
+// Glow of the revealed photo on the broken faces facing it.
+#define PHOTO_BOUNCE 0.45
 
 // Polished skin: relief strength, GGX highlight strength, sky reflection strength, roughness range.
 #define SKIN_BUMP 0.5
@@ -177,6 +179,12 @@ void main(){
   vec3 broken = rawSurf + vol * RAW_VOLUME;
   broken += uLightColor * uIntensity * glint * RAW_GLINT;
   broken += uLightColor * uIntensity * max(uCrack - 1.0, 0.0) * 0.9;
+  // The revealed photo sits at the stone's centre (object origin): it lights the broken faces
+  // turned toward it, warm like the project colour, falling off with distance.
+  vec3 toPhoto = -ro;
+  float dPhoto = length(toPhoto);
+  float photoLit = max(dot(n, toPhoto / max(dPhoto, 1e-3)), 0.0) / (1.0 + dPhoto * dPhoto * 1.5);
+  broken += mix(vec3(1.0), uLightColor, 0.8) * rawAlb * photoLit * uPhotoGlow * PHOTO_BOUNCE * uIntensity;
 
   vec3 col = mix(skin, broken, raw);
   col *= mix(0.55, 1.0, smoothstep(0.0, 0.5, vObj.y + uHalf.y));

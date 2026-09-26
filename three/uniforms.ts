@@ -9,6 +9,11 @@ function createSharedUniforms() {
     uCamPos: { value: new THREE.Vector3() },
     uMist: { value: 1 },
     uLightDir: { value: new THREE.Vector3(0, 0.34, -1).normalize() },
+    // How open the stone is (0 closed, 1 fully spread) and how much its photo is showing, written
+    // by Monolith every frame: the ground's contact shadow and the photo's glow on the broken
+    // faces read them.
+    uStoneOpen: { value: 0 },
+    uPhotoGlow: { value: 0 },
   };
 }
 

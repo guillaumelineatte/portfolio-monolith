@@ -297,6 +297,8 @@ export function Monolith() {
     mesh.position.y = STONE_HALF.y + Math.sin(t * IDLE_BOB_FREQ + 1.7) * IDLE_BOB_AMPLITUDE * w;
     mesh.updateMatrixWorld();
     (material.uniforms.uModelRot.value as THREE.Matrix3).setFromMatrix4(mesh.matrixWorld);
+    U.uStoneOpen.value = openEased(openAmt, 0.375) * Math.min(1, (material.uniforms.uSpread.value as number) / SPREAD_FULL);
+    U.uPhotoGlow.value = photoMaterial.uniforms.uReveal.value as number;
     if (!sceneRefs.stoneInv) sceneRefs.stoneInv = new THREE.Matrix4();
     sceneRefs.stoneInv.copy(mesh.matrixWorld).invert();
 

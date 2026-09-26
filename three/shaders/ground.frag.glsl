@@ -11,6 +11,13 @@ void main(){
   float r = length(vWorld.xz + ld * 0.9);
   float spill = exp(-r * 1.3) * 0.55 + exp(-r * 0.45) * 0.08;
   vec3 col = base + uLightColor * spill * uIntensity;
+  // Contact shadow under the stone (its tip touches the ground at the origin), pushed away from
+  // the light; spreads out and fades as the fragments open and lift away.
+  vec2 sp = vWorld.xz + ld * 0.3;
+  float sr = length(sp);
+  float wide = exp(-pow(sr / mix(0.8, 1.9, uStoneOpen), 2.0) * 2.2) * mix(0.55, 0.25, uStoneOpen);
+  float core = exp(-sr * sr * 30.0) * 0.45 * (1.0 - uStoneOpen);
+  col *= 1.0 - clamp(wide + core, 0.0, 0.8) * (0.4 + 0.6 * uIntensity);
   col = mix(col, hor, 1.0 - exp(-dist * 0.06));
   col = applyMist(col, vWorld, dist);
   gl_FragColor = vec4(col, 1.0);
