@@ -18,5 +18,7 @@ void main(){
   col = applyMist(col, vWorld, length(vWorld - uCamPos));
 
   float alpha = uReveal * mix(0.65, 1.0, vign);
+  // No depth write where nothing shows (the material writes depth for the depth of field).
+  if (alpha < 0.02) discard;
   gl_FragColor = vec4(col, alpha);
 }

@@ -3,6 +3,41 @@ uniform sampler2D uImgA; uniform sampler2D uImgB; uniform float uImgMix; uniform
 uniform vec2 uImgPos; uniform vec2 uImgSize; uniform vec2 uImgVel; uniform float uRectAspect; uniform float uReduced;
 varying vec2 vUv;
 
+// Depth of field (off on low-end): the background beyond the stone softens progressively, the
+// stone (and the photo, which writes depth) stays sharp. Circle of confusion from linear depth
+// relative to the focus distance (camera -> stone, set every frame by PostProcess).
+#ifdef DOF
+uniform sampler2D tDepth; uniform float uNear; uniform float uFar; uniform float uFocus;
+#define DOF_TAPS 8
+#define DOF_MAX_PX 5.0
+#define DOF_START 1.35
+#define DOF_FULL 5.0
+float linDepth(vec2 uv){
+  float d = texture2D(tDepth, uv).r;
+  return uNear * uFar / (uFar - d * (uFar - uNear));
+}
+float coc(float z){ return smoothstep(uFocus * DOF_START, uFocus * DOF_FULL, z); }
+vec3 dof(vec2 uv, vec3 base){
+  float c0 = coc(linDepth(uv));
+  if (c0 < 0.01) return base;
+  vec2 r = vec2(DOF_MAX_PX * uRes.y / 900.0) / uRes * c0;
+  float a0 = hash12(gl_FragCoord.xy + 17.0) * 6.2831;
+  vec3 acc = base;
+  float wsum = 1.0;
+  for (int i = 0; i < DOF_TAPS; i++){
+    float t = (float(i) + 0.5) / float(DOF_TAPS);
+    float a = a0 + float(i) * 2.39996;
+    vec2 suv = uv + vec2(cos(a), sin(a)) * sqrt(t) * r;
+    // Weighted by the sample's own blur: a sharp foreground (the stone) doesn't bleed its colour
+    // into the soft background around its silhouette.
+    float w = coc(linDepth(suv));
+    acc += texture2D(tScene, suv).rgb * w;
+    wsum += w;
+  }
+  return acc / wsum;
+}
+#endif
+
 // Single-pass bloom on the HDR scene (before tonemapping): only what's above BLOOM_THRESHOLD
 // (glowing cracks, hot interior, the sun) spills, sampled on a per-pixel-rotated golden spiral
 // (the grain hides the noise). BLOOM_TAPS comes from PostProcess (fewer on low-end).
@@ -39,6 +74,9 @@ vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59)
 vec2 coverUv(vec2 uv, float ra){ const float ta = 0.8; vec2 s = ra > ta ? vec2(1.0, ta / ra) : vec2(ra / ta, 1.0); return (uv - 0.5) * s + 0.5; }
 void main(){
   vec3 col = texture2D(tScene, vUv).rgb;
+#ifdef DOF
+  col = dof(vUv, col);
+#endif
   col += bloom(vUv) * BLOOM_STRENGTH;
   col = pow(aces(col * uExposure), vec3(1.0 / 2.2));
   if (uReveal > 0.001){

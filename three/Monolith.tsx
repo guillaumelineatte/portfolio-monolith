@@ -197,7 +197,11 @@ export function Monolith() {
       vertexShader: VS_PHOTO,
       fragmentShader: FS_PHOTO,
       transparent: true,
-      depthWrite: false,
+      // Writes depth so the post pass's depth of field sees the photo at the stone's distance and
+      // keeps it sharp (otherwise it inherits the far background's depth behind it and blurs).
+      // photo.frag.glsl discards its transparent pixels so an invisible photo writes nothing.
+      // depthTest has to stay on.
+      depthWrite: true,
       side: THREE.DoubleSide,
     });
   }, []);

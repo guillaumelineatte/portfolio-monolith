@@ -16,6 +16,9 @@ import { createPlaceholderTexture } from "./placeholderTexture";
  */
 THREE.ColorManagement.enabled = false;
 
+// Depth of field focuses on the stone's centre (Monolith's STONE_HALF.y, it sits at the origin).
+const FOCUS_Y = 1.85;
+
 /**
  * Priority 4, runs last. Two-pass render (scene -> render target -> fullscreen quad), same as
  * the prototype rather than @react-three/postprocessing. Also handles adaptive resolution
@@ -46,8 +49,10 @@ export function PostProcess() {
         depthBuffer: true,
         stencilBuffer: false,
         samples,
+        // Scene depth for the depth of field in post.frag.glsl (resolved from the MSAA buffer).
+        depthTexture: low ? undefined : new THREE.DepthTexture(2, 2, THREE.UnsignedIntType),
       }),
-    [floatRT, samples]
+    [floatRT, samples, low]
   );
 
   useEffect(() => () => rt.dispose(), [rt]);
@@ -73,6 +78,10 @@ export function PostProcess() {
       uImgVel: { value: new THREE.Vector2() },
       uRectAspect: { value: 0.8 },
       uReduced: { value: reducedMotion ? 1 : 0 },
+      tDepth: { value: rt.depthTexture as THREE.Texture | null },
+      uNear: { value: 0.1 },
+      uFar: { value: 220 },
+      uFocus: { value: 6 },
     }),
     [rt, placeholder] // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -97,7 +106,7 @@ export function PostProcess() {
       uniforms: postUniforms,
       vertexShader: VS_POST,
       fragmentShader: FS_POST,
-      defines: { BLOOM_TAPS: low ? 6 : 10 },
+      defines: { BLOOM_TAPS: low ? 6 : 10, ...(low ? {} : { DOF: "" }) },
       depthTest: false,
       depthWrite: false,
     });
@@ -204,6 +213,11 @@ export function PostProcess() {
       postUniforms.uImgVel.value.set(I.vx, -I.vy);
       postUniforms.uRectAspect.value = tw / Math.max(1, th2);
     }
+
+    const cam = state.camera as THREE.PerspectiveCamera;
+    postUniforms.uNear.value = cam.near;
+    postUniforms.uFar.value = cam.far;
+    postUniforms.uFocus.value = Math.hypot(cam.position.x, cam.position.y - FOCUS_Y, cam.position.z);
 
     state.gl.setRenderTarget(rt);
     state.gl.render(scene, state.camera);
