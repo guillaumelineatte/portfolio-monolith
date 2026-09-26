@@ -35,13 +35,21 @@ const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
 
 const PHOTO_SIZE = { w: 1.0, h: 1.25 };
 
-// Hand-picked fragments pushed further out once a project page is open (SPREAD_FULL only, the home
-// hover preview is unchanged), on top of the automatic photo-clearing extras below. Additive,
-// object space. Keyed by fracture cell count first: the same index is a different fragment on the
-// 14-cell low-end fracture.
-const SPREAD_EXTRA_FULL: Record<number, Record<number, number>> = {
+// Hand-picked extra push, on top of the automatic photo-clearing extras below. Additive, object
+// space. Keyed by fracture cell count first: the same index is a different fragment on the 14-cell
+// low-end fracture.
+// SPREAD_EXTRA_MANUAL applies in every open state (home hover preview and project page).
+// SPREAD_EXTRA_FULL only once a project page is open (fades in between SPREAD_PREVIEW and SPREAD_FULL).
+const SPREAD_EXTRA_MANUAL: Record<number, Record<number, number>> = {
   28: { 5: 0.5, 15: 0.5 },
 };
+const SPREAD_EXTRA_FULL: Record<number, Record<number, number>> = {};
+
+function addExtras(a: Record<number, number>, b: Record<number, number> = {}): Record<number, number> {
+  const out = { ...a };
+  for (const [i, v] of Object.entries(b)) out[+i] = (out[+i] ?? 0) + v;
+  return out;
+}
 
 /**
  * Fragments still in front of the photo at SPREAD_FULL get pushed further out, computed from the
@@ -119,7 +127,7 @@ export function Monolith() {
       seed: 1337,
       thickness: THICKNESS,
     });
-    const extras = photoClearingExtras(f);
+    const extras = addExtras(photoClearingExtras(f), SPREAD_EXTRA_MANUAL[fractureCount]);
     setSpreadExtra(f, extras, SPREAD_EXTRA_FULL[fractureCount]);
     if (DEBUG_FRAGMENT_LABELS) console.info("[Monolith] spread extras", extras);
     return f;
