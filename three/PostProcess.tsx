@@ -32,6 +32,10 @@ export function PostProcess() {
     [gl]
   );
 
+  // MSAA on the scene pass: the canvas itself has antialias off (the post quad doesn't need it)
+  // and the fragments' silhouettes/cut edges were visibly stair-stepped. WebGL2 only, and off on
+  // low-end devices where the adaptive resolution below already struggles.
+  const samples = gl.capabilities.isWebGL2 && !low ? 4 : 0;
   const rt = useMemo(
     () =>
       new THREE.WebGLRenderTarget(2, 2, {
@@ -41,9 +45,12 @@ export function PostProcess() {
         magFilter: THREE.LinearFilter,
         depthBuffer: true,
         stencilBuffer: false,
+        samples,
       }),
-    [floatRT]
+    [floatRT, samples]
   );
+
+  useEffect(() => () => rt.dispose(), [rt]);
 
   const postScene = useMemo(() => new THREE.Scene(), []);
   const postCamera = useMemo(() => new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), []);
