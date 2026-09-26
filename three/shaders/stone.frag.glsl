@@ -22,6 +22,9 @@ uniform float uCrack;
 #define SKIN_ENV 0.45
 #define SKIN_ROUGH_MIN 0.22
 #define SKIN_ROUGH_MAX 0.5
+// Backlit silhouette rim: strength and tightness.
+#define SKIN_RIM 0.9
+#define SKIN_RIM_POWER 5.0
 
 // Interior: per-channel absorption along the path to the light (red carries furthest: warm depths,
 // cooler thin edges; was a single grey 1.7), share of the stylised height palette (was 0.62, set
@@ -145,6 +148,11 @@ void main(){
   surf = mix(surf, surf * 0.4, edge * 0.7);
   vec3 skin = surf + vol;
   skin += uLightColor * uIntensity * (fres * back * 0.35);
+  // Backlit rim: the light sits behind the stone (LightRig), so its thin silhouette edges glow
+  // through, the way translucent stone does against a low sun. Tight (high power) so it reads as
+  // an outline separating the stone from the sky, not a general brightening.
+  float rim = pow(1.0 - clamp(dot(nb, -rd), 0.0, 1.0), SKIN_RIM_POWER);
+  skin += mix(vec3(1.0), uLightColor, 0.7) * uIntensity * rim * smoothstep(0.2, 1.0, back) * SKIN_RIM;
   float crackD = length(toUnrolled(ro)) + snoise(ro * 2.3) * 0.25;
   float reach = min(uCrack, 1.0) * CRACK_REACH;
   float crackLit = smoothstep(reach, reach - 0.4, crackD);
