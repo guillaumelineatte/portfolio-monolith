@@ -4,17 +4,25 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { VS_RIDGE, FS_RIDGE } from "./shaders";
 import { U } from "./uniforms";
+import { useSceneStore } from "@/lib/store";
 
 /**
- * Layered hills on the horizon. Static, wide enough to cover every camFor() pose.
+ * Layered mountain ranges on the horizon, as real terrain strips displaced in ridge.vert.glsl
+ * (crest line + slopes with spurs and gullies, lit by the low sun). Static, wide enough to cover
+ * every camFor() pose. `top` is where the old flat cards' top edge sat, so the crest line and the
+ * framing stay where they were; `span` is how deep each strip runs (front slope ~62% of it).
  */
 const LAYERS = [
-  { z: -22, y: -1.6, width: 260, height: 12, seed: 1.7, freq: 0.05, ridgeHeight: 3.2, depth: 0.18 },
-  { z: -42, y: -1.1, width: 340, height: 16, seed: 5.3, freq: 0.035, ridgeHeight: 4.5, depth: 0.48 },
-  { z: -72, y: -0.6, width: 440, height: 20, seed: 9.1, freq: 0.022, ridgeHeight: 5.5, depth: 0.78 },
+  { z: -22, top: 4.4, span: 18, width: 260, seed: 1.7, freq: 0.05, ridgeHeight: 3.2, rough: 3.4, depth: 0.18 },
+  { z: -42, top: 6.9, span: 26, width: 340, seed: 5.3, freq: 0.035, ridgeHeight: 4.5, rough: 4.2, depth: 0.48 },
+  { z: -72, top: 9.4, span: 34, width: 440, seed: 9.1, freq: 0.022, ridgeHeight: 5.5, rough: 5.0, depth: 0.78 },
 ];
 
 export function Landscape() {
+  const low = useSceneStore((s) => s.low);
+  const cols = low ? 256 : 384;
+  const rows = low ? 12 : 20;
+
   const materials = useMemo(
     () =>
       LAYERS.map(
@@ -26,22 +34,29 @@ export function Landscape() {
                 uFreq: { value: l.freq },
                 uRidgeHeight: { value: l.ridgeHeight },
                 uDepth: { value: l.depth },
+                uTop: { value: l.top },
+                uBase: { value: -3 },
+                uZ: { value: l.z },
+                uDepthSpan: { value: l.span },
+                uRough: { value: l.rough },
               },
               U
             ),
             vertexShader: VS_RIDGE,
             fragmentShader: FS_RIDGE,
+            defines: low ? { LOW_QUALITY: "" } : {},
           })
       ),
-    []
+    [low]
   );
 
   return (
     <>
       {LAYERS.map((l, i) => (
-        <mesh key={i} position={[0, l.y, l.z]} material={materials[i]}>
-          {/* Enough columns for the finer crest octaves in ridge.vert.glsl. */}
-          <planeGeometry args={[l.width, l.height, 512, 1]} />
+        // Displaced entirely in the vertex shader (world-space output), so the geometry's own
+        // bounds mean nothing: no frustum culling.
+        <mesh key={i} material={materials[i]} frustumCulled={false}>
+          <planeGeometry args={[l.width, l.span, cols, rows]} />
         </mesh>
       ))}
     </>
