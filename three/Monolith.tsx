@@ -9,7 +9,7 @@ import { U } from "./uniforms";
 import { sceneRefs } from "./sceneRefs";
 import { useSceneStore } from "@/lib/store";
 import { damp, dampAngle } from "@/lib/math";
-import { buildFractureGeometry, setSpreadExtra } from "./fracture";
+import { buildFractureGeometry, setSpreadExtra, spreadExpand } from "./fracture";
 import { registerStone, SPREAD_PREVIEW, SPREAD_FULL } from "./stoneCrack";
 import { createPlaceholderTexture } from "./placeholderTexture";
 import { computeSpreadExtra, type CameraPose } from "./photoOcclusion";
@@ -34,6 +34,14 @@ export const STONE_HALF = new THREE.Vector3(RADIUS, LENGTH / 2 + RADIUS, RADIUS)
 const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
 
 const PHOTO_SIZE = { w: 1.0, h: 1.25 };
+
+// Hand-picked fragments pushed further out once a project page is open (SPREAD_FULL only, the home
+// hover preview is unchanged), on top of the automatic photo-clearing extras below. Additive,
+// object space. Keyed by fracture cell count first: the same index is a different fragment on the
+// 14-cell low-end fracture.
+const SPREAD_EXTRA_FULL: Record<number, Record<number, number>> = {
+  28: { 5: 0.5, 15: 0.5 },
+};
 
 /**
  * Fragments still in front of the photo at SPREAD_FULL get pushed further out, computed from the
@@ -112,7 +120,7 @@ export function Monolith() {
       thickness: THICKNESS,
     });
     const extras = photoClearingExtras(f);
-    setSpreadExtra(f, extras);
+    setSpreadExtra(f, extras, SPREAD_EXTRA_FULL[fractureCount]);
     if (DEBUG_FRAGMENT_LABELS) console.info("[Monolith] spread extras", extras);
     return f;
   }, [fractureCount]);
@@ -129,6 +137,7 @@ export function Monolith() {
         uCrack: { value: 0 },
         uDrift: { value: 0 },
         uSpread: { value: SPREAD_PREVIEW },
+        uSpreadRange: { value: new THREE.Vector2(SPREAD_PREVIEW, SPREAD_FULL) },
         uSeeds: { value: seedsToVectorArray(fracture.seedsXY) },
         uSeedCount: { value: fracture.count },
       },
@@ -263,6 +272,7 @@ export function Monolith() {
       const spread = material.uniforms.uSpread.value as number;
       const drift = material.uniforms.uDrift.value as number;
       const time = U.uTime.value as number;
+      const expand = spreadExpand(spread, SPREAD_PREVIEW, SPREAD_FULL);
       fracture.cells.forEach((cell, i) => {
         const el = labelEls.current[i];
         if (!el) return;
@@ -272,7 +282,7 @@ export function Monolith() {
         const driftAmt = Math.sin(driftPhase) * 0.012 * drift * eased;
         labelScratch
           .copy(cell.outDir)
-          .multiplyScalar((spread + cell.spreadExtra) * eased + driftAmt)
+          .multiplyScalar((spread + cell.spreadExtra + cell.spreadExtraFull * expand) * eased + driftAmt)
           .add(cell.pivot);
         labelScratch.applyMatrix4(mesh.matrixWorld);
         labelScratch.project(state.camera);

@@ -22,6 +22,8 @@ export interface FractureCellInfo {
   /** Extra spread, object space, ADDED to uSpread (not multiplied, that overshoots at SPREAD_FULL).
    * 0 at build time, filled in by setSpreadExtra() from photoOcclusion.ts. */
   spreadExtra: number;
+  /** Same, but only applied once the stone is fully expanded (project page), see stone.vert.glsl. */
+  spreadExtraFull: number;
   /** Axis * angle of the open rotation, same as the aRotAxis attribute. */
   rotAxis: THREE.Vector3;
   /** Vertex range in the merged geometry. */
@@ -269,6 +271,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
       outDir: outDir.clone(),
       delay,
       spreadExtra: 0,
+      spreadExtraFull: 0,
       rotAxis: axis.clone(),
       vertexStart,
       vertexCount: positions.length / 3 - vertexStart,
@@ -283,6 +286,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   geometry.setAttribute("aRotAxis", new THREE.Float32BufferAttribute(rotAxes, 3));
   geometry.setAttribute("aDelay", new THREE.Float32BufferAttribute(delays, 1));
   geometry.setAttribute("aSpreadExtra", new THREE.Float32BufferAttribute(spreadExtras, 1));
+  geometry.setAttribute("aSpreadExtraFull", new THREE.Float32BufferAttribute(spreadExtras.slice(), 1));
   geometry.setAttribute("aBoundsMin", new THREE.Float32BufferAttribute(boundsMin, 3));
   geometry.setAttribute("aBoundsMax", new THREE.Float32BufferAttribute(boundsMax, 3));
 
@@ -295,13 +299,28 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   return { geometry, seedsXY, count: cells.length, cells: cellsInfo };
 }
 
-/** Writes extra spread per cell index into the aSpreadExtra attribute and the matching cell info,
- * so the shader and the JS mirror of it (debug labels) stay in sync. */
-export function setSpreadExtra(fracture: FractureResult, extra: Record<number, number>): void {
+/** Writes extra spread per cell index into the aSpreadExtra / aSpreadExtraFull attributes and the
+ * matching cell info, so the shader and the JS mirror of it (debug labels) stay in sync. */
+export function setSpreadExtra(
+  fracture: FractureResult,
+  extra: Record<number, number>,
+  extraFull: Record<number, number> = {}
+): void {
   const attr = fracture.geometry.getAttribute("aSpreadExtra") as THREE.BufferAttribute;
+  const attrFull = fracture.geometry.getAttribute("aSpreadExtraFull") as THREE.BufferAttribute;
   fracture.cells.forEach((cell, i) => {
     cell.spreadExtra = extra[i] ?? 0;
-    for (let v = cell.vertexStart; v < cell.vertexStart + cell.vertexCount; v++) attr.setX(v, cell.spreadExtra);
+    cell.spreadExtraFull = extraFull[i] ?? 0;
+    for (let v = cell.vertexStart; v < cell.vertexStart + cell.vertexCount; v++) {
+      attr.setX(v, cell.spreadExtra);
+      attrFull.setX(v, cell.spreadExtraFull);
+    }
   });
   attr.needsUpdate = true;
+  attrFull.needsUpdate = true;
+}
+
+/** 0 at the preview spread, 1 at the full one. Mirrors stone.vert.glsl's `expand`. */
+export function spreadExpand(spread: number, preview: number, full: number): number {
+  return Math.min(1, Math.max(0, (spread - preview) / Math.max(1e-4, full - preview)));
 }
