@@ -10,8 +10,8 @@ varying vec2 vUv;
 uniform sampler2D tDepth; uniform float uNear; uniform float uFar; uniform float uFocus;
 #define DOF_TAPS 8
 #define DOF_MAX_PX 5.0
-#define DOF_START 1.35
-#define DOF_FULL 5.0
+#define DOF_START 2.0
+#define DOF_FULL 7.0
 float linDepth(vec2 uv){
   float d = texture2D(tDepth, uv).r;
   return uNear * uFar / (uFar - d * (uFar - uNear));

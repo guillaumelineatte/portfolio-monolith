@@ -2,6 +2,7 @@ import chunkCommon from "./chunks/common.glsl";
 import chunkNoise from "./chunks/noise.glsl";
 import chunkSky from "./chunks/sky.glsl";
 import chunkMist from "./chunks/mist.glsl";
+import chunkCloudSea from "./chunks/cloudsea.glsl";
 
 import skyVertBody from "./sky.vert.glsl";
 import skyFragBody from "./sky.frag.glsl";
@@ -31,8 +32,8 @@ export const VS_SKY = skyVertBody;
 export const FS_SKY = PRE + skyFragBody;
 
 export const VS_WORLD = worldVertBody;
-export const FS_GROUND = PRE + groundFragBody;
-export const VS_GROUND = chunkCommon + chunkNoise + groundVertBody;
+export const FS_GROUND = PRE + chunkCloudSea + groundFragBody;
+export const VS_GROUND = chunkCommon + chunkNoise + chunkCloudSea + groundVertBody;
 
 export const VS_STONE = stoneVertBody;
 export const FS_STONE = PRE + stoneFragBody;
@@ -41,7 +42,7 @@ export const VS_UV = uvVertBody;
 export const FS_HALO = chunkCommon + haloFragBody;
 
 export const VS_CARD = cardVertBody;
-export const FS_CARD = PRE + cardFragBody;
+export const FS_CARD = PRE + chunkCloudSea + cardFragBody;
 
 export const VS_POST = postVertBody;
 export const FS_POST = chunkCommon + chunkNoise + postFragBody;

@@ -6,21 +6,20 @@ import { VS_GROUND, FS_GROUND } from "./shaders";
 import { useSceneStore } from "@/lib/store";
 import { U } from "./uniforms";
 
-// Must match ground.vert.glsl's DUNE_CLEAR_R: inside it the floor is flat and a plain disc will do.
-const FLAT_R = 12;
+const INNER_R = 0.4;
 const OUTER_R = 110;
 
 /**
- * Polar ground mesh on the XZ plane: a flat disc under the stone, then rings spaced
- * exponentially out to the horizon so each triangle covers roughly the same screen area. A
- * uniform grid (needed for the dunes in ground.vert.glsl) wasted most of its triangles as
- * sub-pixel slivers in the distance, which cost ~4 fps under MSAA.
+ * Polar mesh for the sea of clouds (displaced in ground.vert.glsl): rings spaced exponentially
+ * from just under the stone out to the horizon, so each triangle covers roughly the same screen
+ * area. A uniform grid wasted most of its triangles as sub-pixel slivers in the distance, which
+ * cost ~3 fps under MSAA.
  */
 function buildGroundGeometry(rings: number, segs: number): THREE.BufferGeometry {
   const pos: number[] = [0, 0, 0];
   const ringStart = (i: number) => 1 + i * segs;
   for (let i = 0; i <= rings; i++) {
-    const r = FLAT_R * Math.pow(OUTER_R / FLAT_R, i / rings);
+    const r = INNER_R * Math.pow(OUTER_R / INNER_R, i / rings);
     for (let j = 0; j < segs; j++) {
       const a = (j / segs) * Math.PI * 2;
       pos.push(Math.cos(a) * r, 0, Math.sin(a) * r);
@@ -46,7 +45,7 @@ function buildGroundGeometry(rings: number, segs: number): THREE.BufferGeometry 
 
 export function Ground() {
   const low = useSceneStore((s) => s.low);
-  const geometry = useMemo(() => (low ? buildGroundGeometry(24, 80) : buildGroundGeometry(32, 112)), [low]);
+  const geometry = useMemo(() => (low ? buildGroundGeometry(36, 96) : buildGroundGeometry(48, 144)), [low]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   const material = useMemo(
