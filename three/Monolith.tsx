@@ -8,9 +8,8 @@ import { VS_STONE, FS_STONE, VS_PHOTO, FS_PHOTO } from "./shaders";
 import { U } from "./uniforms";
 import { sceneRefs } from "./sceneRefs";
 import { useSceneStore } from "@/lib/store";
-import { damp, dampAngle } from "@/lib/math";
 import { buildFractureGeometry, setSpreadExtra, spreadExpand } from "./fracture";
-import { WAVE, WAVE_DEFINES, fragmentBaseSpread } from "./stoneMotion";
+import { WAVE, MOTION_DEFINES, fragmentBaseSpread, openEased } from "./stoneMotion";
 import { registerStone, SPREAD_PREVIEW, SPREAD_FULL } from "./stoneCrack";
 import { createPlaceholderTexture } from "./placeholderTexture";
 import { solveFragmentClearance, type CameraPose, type ClearanceResult } from "./photoOcclusion";
@@ -104,6 +103,9 @@ const IDLE_SWAY_AMPLITUDE = 0.12;
 const IDLE_SWAY_FREQ = 0.15;
 const IDLE_BOB_AMPLITUDE = 0.04;
 const IDLE_BOB_FREQ = 0.22;
+// Seconds for the idle sway to fade out as the stone starts opening / back in once it's closed.
+const IDLE_FADE_OUT = 0.9;
+const IDLE_FADE_IN = 2.5;
 
 function seedsToVectorArray(seedsXY: Float32Array): THREE.Vector2[] {
   const arr: THREE.Vector2[] = [];
@@ -125,6 +127,7 @@ export function Monolith() {
   const booted = useSceneStore((s) => s.booted);
   const reducedMotion = useSceneStore((s) => s.reducedMotion);
   const introFired = useRef(false);
+  const idleW = useRef(1);
 
   const fractureCount = low ? 14 : 28;
   const stepsMax = low ? 10 : 24;
@@ -173,7 +176,7 @@ export function Monolith() {
       uniforms,
       vertexShader: VS_STONE,
       fragmentShader: FS_STONE,
-      defines: { STEPS: stepsMax, ...WAVE_DEFINES },
+      defines: { STEPS: stepsMax, ...MOTION_DEFINES },
       // ~28 hand-built prisms, one bad winding would leave a hole. DoubleSide is cheap here.
       side: THREE.DoubleSide,
     });
@@ -282,14 +285,17 @@ export function Monolith() {
     const reduced = useSceneStore.getState().reducedMotion;
     const openAmt = material.uniforms.uOpen.value as number;
     const t = U.uTime.value as number;
-    if (openAmt < 0.01) {
-      mesh.rotation.y = reduced ? BASE_TILT.y : BASE_TILT.y + Math.sin(t * IDLE_SWAY_FREQ) * IDLE_SWAY_AMPLITUDE;
-      mesh.position.y = reduced ? STONE_HALF.y : STONE_HALF.y + Math.sin(t * IDLE_BOB_FREQ + 1.7) * IDLE_BOB_AMPLITUDE;
-    } else {
-      // Snap back to the base angle/height so every open looks the same.
-      mesh.rotation.y = reduced ? BASE_TILT.y : dampAngle(mesh.rotation.y, BASE_TILT.y, 6, delta);
-      mesh.position.y = reduced ? STONE_HALF.y : damp(mesh.position.y, STONE_HALF.y, 6, delta);
-    }
+    // Idle sway/bob, faded out while open so every open uses the same base angle/height (the photo
+    // clearance is computed for it). The weight ramps linearly and goes through a smoothstep, so
+    // the stone eases into and out of the sway: switching it straight back on when a close
+    // finished jumped the stone by up to IDLE_SWAY_AMPLITUDE in one frame.
+    const idleTarget = openAmt < 0.01 ? 1 : 0;
+    const idleRate = idleTarget > idleW.current ? 1 / IDLE_FADE_IN : 1 / IDLE_FADE_OUT;
+    const dt = Math.min(delta, 0.1);
+    idleW.current += Math.sign(idleTarget - idleW.current) * Math.min(Math.abs(idleTarget - idleW.current), idleRate * dt);
+    const w = reduced ? 0 : idleW.current * idleW.current * (3 - 2 * idleW.current);
+    mesh.rotation.y = BASE_TILT.y + Math.sin(t * IDLE_SWAY_FREQ) * IDLE_SWAY_AMPLITUDE * w;
+    mesh.position.y = STONE_HALF.y + Math.sin(t * IDLE_BOB_FREQ + 1.7) * IDLE_BOB_AMPLITUDE * w;
     mesh.updateMatrixWorld();
     if (!sceneRefs.stoneInv) sceneRefs.stoneInv = new THREE.Matrix4();
     sceneRefs.stoneInv.copy(mesh.matrixWorld).invert();
@@ -314,8 +320,7 @@ export function Monolith() {
         if (!el) return;
         const spread = fragmentBaseSpread(wave, cell.delay);
         const expand = spreadExpand(spread, SPREAD_PREVIEW, SPREAD_FULL);
-        const localT = Math.min(1, Math.max(0, (openAmt - cell.delay) / Math.max(1e-4, 1 - cell.delay)));
-        const eased = 1 - Math.pow(2, -10 * localT);
+        const eased = openEased(openAmt, cell.delay);
         const driftPhase = cell.delay * 41 + time * 0.6;
         const driftAmt = Math.sin(driftPhase) * 0.012 * drift * eased;
         labelScratch

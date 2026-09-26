@@ -4,8 +4,9 @@ uniform float uTime;
 uniform float uSpread;
 uniform vec2 uSpreadRange; // (SPREAD_PREVIEW, SPREAD_FULL)
 // Preview -> full burst (stoneCrack.ts burstTo): while uWaveOn is 1 each fragment follows its own
-// staggered, overshooting curve from uWaveFrom to uWaveTo instead of the shared uSpread.
-// WAVE_* defines come from three/stoneMotion.ts, which also mirrors this math in JS.
+// staggered curve from uWaveFrom to uWaveTo instead of the shared uSpread.
+// OPEN_*/WAVE_*/STAGGER_* defines and the curves come from three/stoneMotion.ts, which mirrors
+// this math in JS.
 uniform float uWaveOn;
 uniform float uWaveFrom;
 uniform float uWaveTo;
@@ -36,9 +37,14 @@ mat3 rotationMatrix(vec3 axis, float angle){
   );
 }
 
-float waveEase(float x){
-  float y = x - 1.0;
-  return 1.0 + (WAVE_OVERSHOOT + 1.0) * y * y * y + WAVE_OVERSHOOT * y * y;
+// Zero speed at both ends, fast early, long gentle settle (see stoneMotion.ts fragEase).
+float fragEase(float x){
+  float y = 1.0 - x;
+  return 1.0 - y * y * y * (1.0 + 3.0 * x);
+}
+float staggerLocal(float t, float stagger){
+  float d = clamp(aDelay / STAGGER_MAX_DELAY, 0.0, 1.0);
+  return clamp((t - d * stagger) / (1.0 - stagger), 0.0, 1.0);
 }
 
 void main(){
@@ -48,12 +54,10 @@ void main(){
   vBoundsMin = aBoundsMin;
   vBoundsMax = aBoundsMax;
 
-  float localT = clamp((uOpen - aDelay) / max(1e-4, 1.0 - aDelay), 0.0, 1.0);
-  float eased = 1.0 - pow(2.0, -10.0 * localT);
+  float eased = fragEase(staggerLocal(uOpen, OPEN_STAGGER));
 
-  float d = clamp(aDelay / WAVE_MAX_DELAY, 0.0, 1.0);
-  float wl = clamp((uWaveT - d * WAVE_STAGGER) / (1.0 - WAVE_STAGGER), 0.0, 1.0);
-  float baseSpread = mix(uSpread, mix(uWaveFrom, uWaveTo, waveEase(wl)), uWaveOn);
+  float wave = mix(uWaveFrom, uWaveTo, fragEase(staggerLocal(uWaveT, WAVE_STAGGER)));
+  float baseSpread = mix(uSpread, wave, uWaveOn);
   // How far this fragment is from the preview spread toward the full one. Drives the full-only
   // extra push and a bit more rotation, so pieces tumble a little as they fly out.
   float expand = clamp((baseSpread - uSpreadRange.x) / max(1e-4, uSpreadRange.y - uSpreadRange.x), 0.0, 1.0);
