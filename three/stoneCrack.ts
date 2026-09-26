@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import gsap from "gsap";
+import { ROUTE_MOVE_DURATION } from "@/lib/timing";
+import { waveEase, waveLocal } from "./stoneMotion";
 
 /**
  * Open/close/crossfade for the stone. Monolith.tsx registers its uniforms and the photo mesh,
@@ -16,6 +18,10 @@ interface StoneUniforms {
   uCrack: { value: number };
   uDrift: { value: number };
   uSpread: { value: number };
+  uWaveOn: { value: number };
+  uWaveFrom: { value: number };
+  uWaveTo: { value: number };
+  uWaveT: { value: number };
 }
 interface PhotoUniforms {
   uTexA: { value: THREE.Texture };
@@ -28,6 +34,19 @@ let stoneU: StoneUniforms | null = null;
 let photoU: PhotoUniforms | null = null;
 let photoMesh: THREE.Object3D | null = null;
 let currentIdx = -1;
+// Spread the stone is open at (or heading to), -1 when closed/closing. Lets a repeated openStone
+// with the same target be a no-op: the project page calls it on click AND when its visual
+// reveals, the second call must not restart the burst halfway through.
+let spreadTarget = -1;
+let waveTl: gsap.core.Timeline | null = null;
+
+// Anticipation before the preview -> full burst: fragments pull in a little while the cracks
+// flare, then fly out.
+const BURST_WINDUP = 0.3;
+const BURST_SQUEEZE = 0.08;
+const BURST_CRACK_PEAK = 1.8;
+// Fragment the JS-side uSpread mirror follows during the wave (middle of the stagger).
+const WAVE_MIRROR_DELAY = 0.375;
 
 export function registerStone(
   stoneUniforms: StoneUniforms | null,
@@ -67,8 +86,62 @@ function spreadTiming(retreating: boolean): SpreadTiming {
   return retreating ? { duration: 6.5, ease: "power1.out" } : { duration: 2.8, ease: "expo.out" };
 }
 
+/** Stops a running burst wave. Dropping uWaveOn straight to 0 made every fragment jump from its
+ * own place in the stagger to the shared uSpread (up to ~0.4 in one frame, e.g. going back home
+ * mid-burst), so the wave freezes where it is and fades out while whatever follows takes over. */
+function cancelWave(): void {
+  if (waveTl) {
+    waveTl.kill();
+    waveTl = null;
+  }
+  if (!stoneU) return;
+  gsap.killTweensOf(stoneU.uWaveOn);
+  if (stoneU.uWaveOn.value > 0) gsap.to(stoneU.uWaveOn, { value: 0, duration: 0.9, ease: "power2.out" });
+}
+
+/** Preview -> full on opening a project: a short wind-up (pull in, cracks flare), then every
+ * fragment flies out on its own staggered, slightly overshooting curve (stone.vert.glsl's wave),
+ * inner ones first. Ends together with the camera move, so the click reads as one gesture. */
+function burstTo(target: number): void {
+  if (!stoneU) return;
+  const u = stoneU;
+  cancelWave();
+  gsap.killTweensOf(u.uSpread);
+  const squeezed = Math.max(0, u.uSpread.value - BURST_SQUEEZE);
+
+  const tl = gsap.timeline({ onComplete: () => void (waveTl = null) });
+  waveTl = tl;
+  tl.to(u.uSpread, { value: squeezed, duration: BURST_WINDUP, ease: "power2.inOut" })
+    .call(() => {
+      gsap.killTweensOf(u.uWaveOn);
+      u.uWaveFrom.value = squeezed;
+      u.uWaveTo.value = target;
+      u.uWaveT.value = 0;
+      u.uWaveOn.value = 1;
+    })
+    .to(u.uWaveT, {
+      value: 1,
+      duration: ROUTE_MOVE_DURATION - BURST_WINDUP,
+      ease: "none",
+      onUpdate() {
+        u.uSpread.value = squeezed + (target - squeezed) * waveEase(waveLocal(u.uWaveT.value, WAVE_MIRROR_DELAY));
+      },
+      onComplete() {
+        u.uSpread.value = target;
+        u.uWaveOn.value = 0;
+      },
+    });
+
+  gsap.killTweensOf(u.uCrack);
+  gsap
+    .timeline()
+    .to(u.uCrack, { value: BURST_CRACK_PEAK, duration: BURST_WINDUP, ease: "power2.in" })
+    .to(u.uCrack, { value: 1, duration: 1.4, ease: "power2.out" });
+}
+
 function driveSpread(target: number, reducedMotion: boolean, timing: SpreadTiming): void {
   if (!stoneU) return;
+  cancelWave();
   gsap.killTweensOf(stoneU.uSpread);
   if (reducedMotion) {
     stoneU.uSpread.value = target;
@@ -104,12 +177,26 @@ function holdOpen(reducedMotion: boolean, timing: SpreadTiming): void {
 export function openStone(texture: THREE.Texture, index: number, reducedMotion: boolean, expanded = false): void {
   if (!stoneU || !photoU) return;
   const target = expanded ? SPREAD_FULL : SPREAD_PREVIEW;
-  const alreadyOpen = stoneU.uOpen.value > 0.5 || (reducedMotion && photoU.uReveal.value > 0.5);
+  // spreadTarget > 0 also covers a stone still early in its opening (uOpen < 0.5, e.g. a click
+  // right after the hover started), which used to fall through to the closed path below and
+  // snap uSpread straight to the target.
+  const alreadyOpen = spreadTarget > 0 || stoneU.uOpen.value > 0.5 || (reducedMotion && photoU.uReveal.value > 0.5);
 
   if (alreadyOpen) {
+    const closing = spreadTarget < 0;
     if (index !== currentIdx) {
       currentIdx = index;
       crossfadePhoto(texture);
+    }
+    // Already open at / heading to this spread (project -> project, repeated calls): the photo
+    // crossfade above is all that changes.
+    if (target === spreadTarget) return;
+    spreadTarget = target;
+
+    if (!reducedMotion && target > stoneU.uSpread.value + 0.05) {
+      if (closing) holdOpen(false, { duration: ROUTE_MOVE_DURATION, ease: "power3.inOut" });
+      burstTo(target);
+      return;
     }
     const timing = spreadTiming(target < stoneU.uSpread.value);
     driveSpread(target, reducedMotion, timing);
@@ -117,6 +204,8 @@ export function openStone(texture: THREE.Texture, index: number, reducedMotion: 
     return;
   }
   currentIdx = index;
+  spreadTarget = target;
+  cancelWave();
   stoneU.uSpread.value = target;
 
   photoU.uTexA.value = texture;
@@ -159,6 +248,7 @@ export function closeStone(reducedMotion: boolean): void {
   // and the stone looked empty.
   const openDuration = fromFull ? 6.5 : 5;
   currentIdx = -1;
+  spreadTarget = -1;
 
   gsap.killTweensOf(stoneU.uCrack);
   gsap.killTweensOf(stoneU.uOpen);

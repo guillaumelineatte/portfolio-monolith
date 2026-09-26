@@ -10,6 +10,7 @@ import { sceneRefs } from "./sceneRefs";
 import { useSceneStore } from "@/lib/store";
 import { damp, dampAngle } from "@/lib/math";
 import { buildFractureGeometry, setSpreadExtra, spreadExpand } from "./fracture";
+import { WAVE, WAVE_DEFINES, fragmentBaseSpread } from "./stoneMotion";
 import { registerStone, SPREAD_PREVIEW, SPREAD_FULL } from "./stoneCrack";
 import { createPlaceholderTexture } from "./placeholderTexture";
 import { solveFragmentClearance, type CameraPose, type ClearanceResult } from "./photoOcclusion";
@@ -90,7 +91,7 @@ function photoClearance(fracture: ReturnType<typeof buildFractureGeometry>): Cle
     photoCenter: new THREE.Vector3(0, STONE_HALF.y, 0),
     photoHalf: new THREE.Vector2(PHOTO_SIZE.w / 2, PHOTO_SIZE.h / 2),
     preview: { poses: jitteredPoses("home"), spread: SPREAD_PREVIEW },
-    full: { poses: jitteredPoses("project"), spread: SPREAD_FULL },
+    full: { poses: jitteredPoses("project"), spread: SPREAD_FULL, rotScale: 1 + WAVE.rotBoost },
     deflectAbove: DEFLECT_ABOVE,
   });
 }
@@ -159,6 +160,10 @@ export function Monolith() {
         uDrift: { value: 0 },
         uSpread: { value: SPREAD_PREVIEW },
         uSpreadRange: { value: new THREE.Vector2(SPREAD_PREVIEW, SPREAD_FULL) },
+        uWaveOn: { value: 0 },
+        uWaveFrom: { value: SPREAD_PREVIEW },
+        uWaveTo: { value: SPREAD_PREVIEW },
+        uWaveT: { value: 0 },
         uSeeds: { value: seedsToVectorArray(fracture.seedsXY) },
         uSeedCount: { value: fracture.count },
       },
@@ -168,7 +173,7 @@ export function Monolith() {
       uniforms,
       vertexShader: VS_STONE,
       fragmentShader: FS_STONE,
-      defines: { STEPS: stepsMax },
+      defines: { STEPS: stepsMax, ...WAVE_DEFINES },
       // ~28 hand-built prisms, one bad winding would leave a hole. DoubleSide is cheap here.
       side: THREE.DoubleSide,
     });
@@ -212,6 +217,10 @@ export function Monolith() {
         uCrack: material.uniforms.uCrack as { value: number },
         uDrift: material.uniforms.uDrift as { value: number },
         uSpread: material.uniforms.uSpread as { value: number },
+        uWaveOn: material.uniforms.uWaveOn as { value: number },
+        uWaveFrom: material.uniforms.uWaveFrom as { value: number },
+        uWaveTo: material.uniforms.uWaveTo as { value: number },
+        uWaveT: material.uniforms.uWaveT as { value: number },
       },
       {
         uTexA: photoMaterial.uniforms.uTexA as { value: THREE.Texture },
@@ -290,13 +299,21 @@ export function Monolith() {
     // Debug: same displacement as stone.vert.glsl for each fragment pivot, projected to screen
     // by hand to place the label.
     if (DEBUG_FRAGMENT_LABELS) {
-      const spread = material.uniforms.uSpread.value as number;
-      const drift = material.uniforms.uDrift.value as number;
+      const mu = material.uniforms;
+      const wave = {
+        uSpread: mu.uSpread.value as number,
+        uWaveOn: mu.uWaveOn.value as number,
+        uWaveFrom: mu.uWaveFrom.value as number,
+        uWaveTo: mu.uWaveTo.value as number,
+        uWaveT: mu.uWaveT.value as number,
+      };
+      const drift = mu.uDrift.value as number;
       const time = U.uTime.value as number;
-      const expand = spreadExpand(spread, SPREAD_PREVIEW, SPREAD_FULL);
       fracture.cells.forEach((cell, i) => {
         const el = labelEls.current[i];
         if (!el) return;
+        const spread = fragmentBaseSpread(wave, cell.delay);
+        const expand = spreadExpand(spread, SPREAD_PREVIEW, SPREAD_FULL);
         const localT = Math.min(1, Math.max(0, (openAmt - cell.delay) / Math.max(1e-4, 1 - cell.delay)));
         const eased = 1 - Math.pow(2, -10 * localT);
         const driftPhase = cell.delay * 41 + time * 0.6;

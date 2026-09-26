@@ -76,6 +76,12 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     // SPREAD_PREVIEW on mount, closing here would flicker. HomeView closes it itself if nothing
     // ends up hovered.
     if (route.name === "about") closeStone(reducedMotion);
+    // Opening a project: burst the stone open right on click, alongside the camera move (both end
+    // together), instead of waiting for the new page's visual to reveal ~1.4s later, which landed
+    // the burst on the camera's peak speed. visualHandler's later call is then a no-op.
+    if (route.name === "project") {
+      openStone(getProjectTexture(projects[route.index], route.index), route.index, reducedMotion, true);
+    }
     // Going back home, match the camera duration to the stone's slow retreat (driveSpread in
     // stoneCrack.ts) so both read as one move.
     const cameraDuration = fromRoute.name === "project" && route.name === "home" ? 6.5 : undefined;

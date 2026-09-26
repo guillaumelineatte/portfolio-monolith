@@ -91,10 +91,10 @@ function coversPhoto(world: Float32Array, f: Frame, hx: number, hy: number): boo
 
 /** A cell's fully-open triangles (rest pose + open rotation about its pivot) in world space,
  * before any outward translation, plus their centroid. */
-function openPoseWorld(fracture: FractureResult, cellIndex: number, stoneMatrix: THREE.Matrix4) {
+function openPoseWorld(fracture: FractureResult, cellIndex: number, stoneMatrix: THREE.Matrix4, rotScale = 1) {
   const cell = fracture.cells[cellIndex];
   const pos = fracture.geometry.getAttribute("position");
-  const angle = cell.rotAxis.length();
+  const angle = cell.rotAxis.length() * rotScale;
   const axis = cell.rotAxis.clone().normalize();
   const base = new Float32Array(cell.vertexCount * 3);
   const centroid = new THREE.Vector3();
@@ -123,10 +123,11 @@ function extraForCell(
   frames: Frame[],
   photoHalf: THREE.Vector2,
   spread: number,
+  rotScale: number,
   step: number,
   maxExtra: number
 ): number | null {
-  const { base } = openPoseWorld(fracture, cellIndex, stoneMatrix);
+  const { base } = openPoseWorld(fracture, cellIndex, stoneMatrix, rotScale);
   const dir = fracture.cells[cellIndex].outDir.clone().transformDirection(stoneMatrix);
   const world = new Float32Array(base.length);
   const blocked = (extra: number) => {
@@ -178,6 +179,8 @@ function deflectSideways(
 export interface ClearanceStage {
   poses: CameraPose[];
   spread: number;
+  /** Open-rotation multiplier at this stage (stone.vert.glsl's 1 + WAVE_ROT_BOOST * expand). */
+  rotScale?: number;
 }
 
 export interface ClearanceParams {
@@ -217,7 +220,7 @@ export function solveFragmentClearance(params: ClearanceParams): ClearanceResult
 
   fracture.cells.forEach((_cell, i) => {
     const solve = () =>
-      stages.map((s) => extraForCell(fracture, i, stoneMatrix, s.frames, photoHalf, s.spread, step, maxExtra));
+      stages.map((s) => extraForCell(fracture, i, stoneMatrix, s.frames, photoHalf, s.spread, s.rotScale ?? 1, step, maxExtra));
     let [ePrev, eFull] = solve();
     const tooFar = (e: number | null) => e === null || e > deflectAbove;
     const stuck = tooFar(ePrev) ? stages[0] : tooFar(eFull) ? stages[1] : null;

@@ -3,6 +3,7 @@ import { frameState } from "./store";
 import { isNarrow } from "./device";
 import type { RouteDescriptor } from "./route";
 import { getPostCanvas } from "@/three/postApi";
+import { ROUTE_MOVE_DURATION } from "./timing";
 
 const EO = "expo.out";
 
@@ -92,7 +93,7 @@ export function moveCamera(
   }
 
   const opts = {
-    duration: durationOverride ?? (intro ? 4.8 : 2.8),
+    duration: durationOverride ?? (intro ? 4.8 : ROUTE_MOVE_DURATION),
     ease: intro ? EO : "power3.inOut",
     overwrite: true,
   };
