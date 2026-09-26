@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import gsap from "gsap";
-import { ROUTE_MOVE_DURATION } from "@/lib/timing";
+import { ROUTE_MOVE_DURATION, RETURN_HOME_DURATION } from "@/lib/timing";
 import { OPEN, fragEase, staggerLocal, WAVE } from "./stoneMotion";
 
 /**
@@ -82,7 +82,9 @@ interface SpreadTiming {
  * same duration as that camera move) and the reduced-motion/edge cases. inOut so fragments ease
  * into motion instead of jerking (and expo.out on the way back in looked like a snap). */
 function spreadTiming(retreating: boolean): SpreadTiming {
-  return retreating ? { duration: 6.5, ease: "power2.inOut" } : { duration: ROUTE_MOVE_DURATION, ease: "power2.inOut" };
+  return retreating
+    ? { duration: RETURN_HOME_DURATION, ease: "power2.inOut" }
+    : { duration: ROUTE_MOVE_DURATION, ease: "power2.inOut" };
 }
 
 /** Stops a running burst wave without a jolt: dropping uWaveOn straight to 0 made every fragment
@@ -252,8 +254,8 @@ export function closeStone(reducedMotion: boolean): void {
   const fromFull = stoneU.uSpread.value > (SPREAD_PREVIEW + SPREAD_FULL) / 2;
   // uReveal uses the same duration, otherwise the photo faded out before the fragments closed
   // and the stone looked empty. uOpen is linear (easing is per fragment, stoneMotion.ts): from a
-  // hover it closes at the opening's pace, from a project page it matches the 6.5s camera move.
-  const openDuration = (fromFull ? 6.5 : OPEN.duration) * stoneU.uOpen.value;
+  // hover it closes at the opening's pace, from a project page it matches the camera move back.
+  const openDuration = (fromFull ? RETURN_HOME_DURATION : OPEN.duration) * stoneU.uOpen.value;
   currentIdx = -1;
   spreadTarget = -1;
 

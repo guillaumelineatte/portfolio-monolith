@@ -12,6 +12,7 @@ import { projects } from "@/content/projects";
 import { animateOut, prepareView, enterView, resplit } from "@/lib/text-reveal";
 import { resetScrollPosition, resizeScroll, initScroll } from "@/lib/scroll";
 import { usePointer } from "@/hooks/usePointer";
+import { RETURN_HOME_DURATION } from "@/lib/timing";
 
 interface Displayed {
   pathname: string;
@@ -84,7 +85,7 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     }
     // Going back home, match the camera duration to the stone's slow retreat (driveSpread in
     // stoneCrack.ts) so both read as one move.
-    const cameraDuration = fromRoute.name === "project" && route.name === "home" ? 6.5 : undefined;
+    const cameraDuration = fromRoute.name === "project" && route.name === "home" ? RETURN_HOME_DURATION : undefined;
     moveCamera(route, false, reducedMotion, cameraDuration);
     setLight(routeColor(route));
     useSceneStore.getState().setHeaderLabel(route.name === "about" ? "Index" : "About");
