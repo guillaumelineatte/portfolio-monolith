@@ -29,6 +29,12 @@ uniform int uSeedCount;
 #define VEIN_STRENGTH 0.8
 #define VEIN_COLOR vec3(0.62, 0.52, 0.47)
 
+// Crack propagation: the edge glow spreads from the unrolled-space centre (where fracture.ts's
+// aDelay starts, so it runs ahead of the fragments opening) as uCrack goes 0 -> 1, with a hotter
+// leading front. REACH is in unrolled units (the farthest cell is ~3.3 away).
+#define CRACK_REACH 3.6
+#define CRACK_FRONT 2.4
+
 uniform mat3 uModelRot; // stone mesh rotation, object -> world (for the sky reflection)
 
 // Low-frequency undulation + finer pitting, in rest-pose object space so the pattern stays
@@ -146,7 +152,11 @@ void main(){
   surf = mix(surf, surf * 0.4, edge * 0.7);
   vec3 skin = surf + vol;
   skin += uLightColor * uIntensity * (fres * back * 0.35);
-  skin += uLightColor * uIntensity * edge * uCrack * 1.6;
+  float crackD = length(toUnrolled(ro)) + snoise(ro * 2.3) * 0.25;
+  float reach = min(uCrack, 1.0) * CRACK_REACH;
+  float crackLit = smoothstep(reach, reach - 0.4, crackD);
+  float crackFront = exp(-abs(crackD - reach) * 7.0) * (1.0 - smoothstep(0.85, 1.0, uCrack));
+  skin += uLightColor * uIntensity * edge * (crackLit * uCrack * 1.6 + crackFront * CRACK_FRONT);
   // Soft GGX highlight (object space, like L), roughness drifting across the surface.
   vec3 V = -rd;
   vec3 H = normalize(L + V);
