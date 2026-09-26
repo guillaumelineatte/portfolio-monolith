@@ -163,6 +163,7 @@ export function Monolith() {
         uDrift: { value: 0 },
         uSpread: { value: SPREAD_PREVIEW },
         uSpreadRange: { value: new THREE.Vector2(SPREAD_PREVIEW, SPREAD_FULL) },
+        uModelRot: { value: new THREE.Matrix3() },
         uWaveOn: { value: 0 },
         uWaveFrom: { value: SPREAD_PREVIEW },
         uWaveTo: { value: SPREAD_PREVIEW },
@@ -176,11 +177,11 @@ export function Monolith() {
       uniforms,
       vertexShader: VS_STONE,
       fragmentShader: FS_STONE,
-      defines: { STEPS: stepsMax, ...MOTION_DEFINES },
+      defines: { STEPS: stepsMax, ...MOTION_DEFINES, ...(low ? { LOW_QUALITY: "" } : {}) },
       // ~28 hand-built prisms, one bad winding would leave a hole. DoubleSide is cheap here.
       side: THREE.DoubleSide,
     });
-  }, [fracture, stepsMax]);
+  }, [fracture, stepsMax, low]);
 
   const photoMaterial = useMemo(() => {
     const placeholder = createPlaceholderTexture();
@@ -297,6 +298,7 @@ export function Monolith() {
     mesh.rotation.y = BASE_TILT.y + Math.sin(t * IDLE_SWAY_FREQ) * IDLE_SWAY_AMPLITUDE * w;
     mesh.position.y = STONE_HALF.y + Math.sin(t * IDLE_BOB_FREQ + 1.7) * IDLE_BOB_AMPLITUDE * w;
     mesh.updateMatrixWorld();
+    (material.uniforms.uModelRot.value as THREE.Matrix3).setFromMatrix4(mesh.matrixWorld);
     if (!sceneRefs.stoneInv) sceneRefs.stoneInv = new THREE.Matrix4();
     sceneRefs.stoneInv.copy(mesh.matrixWorld).invert();
 

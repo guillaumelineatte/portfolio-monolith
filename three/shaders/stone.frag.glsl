@@ -13,6 +13,38 @@ uniform int uSeedCount;
 #define RAW_TINT 0.6
 #define RAW_VOLUME 0.55
 #define RAW_GLINT 0.7
+
+// Polished skin: relief strength, GGX highlight strength, sky reflection strength, roughness range.
+#define SKIN_BUMP 0.5
+#define SKIN_SPEC 1.2
+#define SKIN_ENV 0.45
+#define SKIN_ROUGH_MIN 0.22
+#define SKIN_ROUGH_MAX 0.5
+
+uniform mat3 uModelRot; // stone mesh rotation, object -> world (for the sky reflection)
+
+// Low-frequency undulation + finer pitting, in rest-pose object space so the pattern stays
+// glued to each fragment as it moves.
+float skinHeight(vec3 p){
+  float h = snoise(p * 3.1) * 0.55 + snoise(p * 8.7 + 11.3) * 0.3;
+#ifndef LOW_QUALITY
+  h += snoise(p * 23.0 + 5.1) * 0.07;
+#endif
+  return h;
+}
+vec3 bumpNormal(vec3 n, vec3 p){
+  const float e = 0.01;
+  float h0 = skinHeight(p);
+  vec3 g = vec3(skinHeight(p + vec3(e, 0.0, 0.0)), skinHeight(p + vec3(0.0, e, 0.0)), skinHeight(p + vec3(0.0, 0.0, e))) - h0;
+  g /= e;
+  g -= dot(g, n) * n;
+  return normalize(n - g * SKIN_BUMP * 0.02);
+}
+float ggxD(float nh, float a){
+  float a2 = a * a;
+  float d = nh * nh * (a2 - 1.0) + 1.0;
+  return a2 / (3.14159 * d * d);
+}
 varying vec3 vObj; varying vec3 vNrm; varying vec3 vWorld;
 varying vec3 vBoundsMin; varying vec3 vBoundsMax;
 varying float vFace; // fracture.ts FACE_*: 0 polished outer skin, 1/2 freshly broken (inner face, cut walls)
@@ -92,12 +124,28 @@ void main(){
   float edgeDist = voronoiEdge(ro);
   float edge = 1.0 - smoothstep(0.0, 0.035, edgeDist);
   vec3 alab = vec3(0.82, 0.77, 0.70);
-  float ndl = max(dot(n, L), 0.0);
+  vec3 nb = raw > 0.5 ? n : bumpNormal(n, ro);
+  float ndl = max(dot(nb, L), 0.0);
   vec3 surf = alab * (vec3(0.035, 0.032, 0.05) + uLightColor * ndl * 0.28) * uIntensity;
   surf = mix(surf, surf * 0.4, edge * 0.7);
   vec3 skin = surf + vol;
   skin += uLightColor * uIntensity * (fres * back * 0.35);
   skin += uLightColor * uIntensity * edge * uCrack * 1.6;
+  // Soft GGX highlight (object space, like L), roughness drifting across the surface.
+  vec3 V = -rd;
+  vec3 H = normalize(L + V);
+  float nv = max(dot(nb, V), 1e-3);
+  float rough = mix(SKIN_ROUGH_MIN, SKIN_ROUGH_MAX, snoise(ro * 1.7 + 3.0) * 0.5 + 0.5);
+  float a = rough * rough;
+  float k = a * 0.5;
+  float vis = 0.25 / ((ndl * (1.0 - k) + k) * (nv * (1.0 - k) + k));
+  float F = 0.04 + 0.96 * pow(1.0 - max(dot(H, V), 0.0), 5.0);
+  skin += uLightColor * uIntensity * ggxD(max(dot(nb, H), 0.0), a) * F * vis * ndl * SKIN_SPEC;
+  // Sky reflection at grazing angles, in world space so it matches the actual sky.
+  vec3 nW = normalize(uModelRot * nb);
+  vec3 vW = normalize(uCamPos - vWorld);
+  float fW = 0.04 + 0.96 * pow(1.0 - max(dot(nW, vW), 0.0), 5.0);
+  skin += skyColor(reflect(-vW, nW)) * fW * SKIN_ENV * (1.0 - rough);
 
   // Freshly broken stone (inner face + cut walls): paler, chalky, wrap-lit so it doesn't go
   // black away from the light, fine grain and sparse crystalline glints. The crack glow above
