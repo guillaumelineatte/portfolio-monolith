@@ -21,6 +21,14 @@ uniform int uSeedCount;
 #define SKIN_ROUGH_MIN 0.22
 #define SKIN_ROUGH_MAX 0.5
 
+// Interior: per-channel absorption along the path to the light (red carries furthest: warm depths,
+// cooler thin edges; was a single grey 1.7), share of the stylised height palette (was 0.62, set
+// back to it for the old look), marble veins (density + colour).
+#define SSS_ABSORB vec3(1.25, 1.75, 2.35)
+#define PALETTE_MIX 0.45
+#define VEIN_STRENGTH 0.8
+#define VEIN_COLOR vec3(0.62, 0.52, 0.47)
+
 uniform mat3 uModelRot; // stone mesh rotation, object -> world (for the sky reflection)
 
 // Low-frequency undulation + finer pitting, in rest-pose object space so the pattern stays
@@ -104,14 +112,22 @@ void main(){
     float w = snoise(p * vec3(0.62, 0.34, 0.62) + vec3(0.0, uTime * 0.004, 0.0));
     float y = p.y + w * 0.55;
     float layers = 0.5 + 0.5 * sin(y * 6.5 + w * 2.5);
-    float sigma = 0.6 + 2.6 * layers * layers * layers;
-    float att = exp(-boxExit(p, L, uHalf) * 1.7);
+#ifndef LOW_QUALITY
+    // Thin, domain-warped sheets (warped by the same `w` as the layers, one extra noise per step).
+    float vein = (1.0 - smoothstep(0.0, 0.07, abs(snoise(p * 2.2 + vec3(w * 1.4))))) * VEIN_STRENGTH;
+#else
+    float vein = 0.0;
+#endif
+    float sigma = 0.6 + 2.6 * layers * layers * layers + vein * 3.0;
+    vec3 attC = exp(-boxExit(p, L, uHalf) * SSS_ABSORB);
+    float att = dot(attC, vec3(0.3333));
     float hgt = clamp((y + uHalf.y) / (2.0 * uHalf.y), 0.0, 1.0);
-    vec3 tint = mix(vec3(1.0), palette(hgt + w * 0.06), 0.62);
+    vec3 tint = mix(vec3(1.0), palette(hgt + w * 0.06), PALETTE_MIX);
     vec3 hot = vec3(1.08, 0.9, 0.72);
     tint = mix(tint, hot, smoothstep(0.42, 0.9, att) * 0.85);
-    acc += tint * (att * phase + 0.05) * sigma * dt * T;
-    acc += hot * pow(att, 5.0) * 1.6 * dt * T;
+    tint = mix(tint, VEIN_COLOR, vein);
+    acc += tint * (attC * phase + 0.05) * sigma * dt * T;
+    acc += hot * pow(attC, vec3(5.0)) * 1.6 * dt * T;
     T *= exp(-sigma * dt * 0.8);
   }
   vec3 vol = acc * uLightColor * uGain * uIntensity + acc * vec3(0.05, 0.045, 0.07);
