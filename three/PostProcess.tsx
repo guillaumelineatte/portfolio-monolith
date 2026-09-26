@@ -97,13 +97,14 @@ export function PostProcess() {
       uniforms: postUniforms,
       vertexShader: VS_POST,
       fragmentShader: FS_POST,
+      defines: { BLOOM_TAPS: low ? 6 : 10 },
       depthTest: false,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
     mesh.frustumCulled = false;
     return mesh;
-  }, [postUniforms]);
+  }, [postUniforms, low]);
 
   useEffect(() => {
     postScene.add(quad);

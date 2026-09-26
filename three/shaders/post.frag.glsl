@@ -2,10 +2,44 @@ uniform sampler2D tScene; uniform vec2 uRes; uniform float uGrain; uniform float
 uniform sampler2D uImgA; uniform sampler2D uImgB; uniform float uImgMix; uniform float uReveal; uniform float uWobble;
 uniform vec2 uImgPos; uniform vec2 uImgSize; uniform vec2 uImgVel; uniform float uRectAspect; uniform float uReduced;
 varying vec2 vUv;
+
+// Single-pass bloom on the HDR scene (before tonemapping): only what's above BLOOM_THRESHOLD
+// (glowing cracks, hot interior, the sun) spills, sampled on a per-pixel-rotated golden spiral
+// (the grain hides the noise). BLOOM_TAPS comes from PostProcess (fewer on low-end).
+#ifndef BLOOM_TAPS
+#define BLOOM_TAPS 10
+#endif
+#define BLOOM_STRENGTH 0.4
+#define BLOOM_THRESHOLD 0.8
+#define BLOOM_RADIUS 0.03
+float bright(vec2 uv){
+  vec3 s = texture2D(tScene, uv).rgb;
+  return max(max(s.r, s.g), s.b);
+}
+vec3 bloom(vec2 uv){
+  vec2 r = vec2(uRes.y / uRes.x, 1.0) * BLOOM_RADIUS;
+  // Early out for the (large) areas with nothing bright nearby: 4 probes across the radius.
+  float probe = max(max(bright(uv + vec2(r.x, 0.0) * 0.6), bright(uv - vec2(r.x, 0.0) * 0.6)),
+                    max(bright(uv + vec2(0.0, r.y) * 0.6), bright(uv - vec2(0.0, r.y) * 0.6)));
+  if (max(probe, bright(uv)) < BLOOM_THRESHOLD) return vec3(0.0);
+  vec3 acc = vec3(0.0);
+  float wsum = 0.0;
+  float a0 = hash12(gl_FragCoord.xy) * 6.2831;
+  for (int i = 0; i < BLOOM_TAPS; i++){
+    float t = (float(i) + 0.5) / float(BLOOM_TAPS);
+    float a = a0 + float(i) * 2.39996;
+    vec3 s = texture2D(tScene, uv + vec2(cos(a), sin(a)) * sqrt(t) * r).rgb;
+    float w = 1.0 - t * 0.75;
+    acc += max(s - BLOOM_THRESHOLD, 0.0) * w;
+    wsum += w;
+  }
+  return acc / wsum;
+}
 vec3 aces(vec3 x){ return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 vec2 coverUv(vec2 uv, float ra){ const float ta = 0.8; vec2 s = ra > ta ? vec2(1.0, ta / ra) : vec2(ra / ta, 1.0); return (uv - 0.5) * s + 0.5; }
 void main(){
   vec3 col = texture2D(tScene, vUv).rgb;
+  col += bloom(vUv) * BLOOM_STRENGTH;
   col = pow(aces(col * uExposure), vec3(1.0 / 2.2));
   if (uReveal > 0.001){
     vec2 local = (gl_FragCoord.xy - uImgPos) / uImgSize + 0.5;
