@@ -40,7 +40,8 @@ export function Landscape() {
     <>
       {LAYERS.map((l, i) => (
         <mesh key={i} position={[0, l.y, l.z]} material={materials[i]}>
-          <planeGeometry args={[l.width, l.height, 64, 1]} />
+          {/* Enough columns for the finer crest octaves in ridge.vert.glsl. */}
+          <planeGeometry args={[l.width, l.height, 512, 1]} />
         </mesh>
       ))}
     </>

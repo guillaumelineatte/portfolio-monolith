@@ -11,6 +11,8 @@ uniform float uCrack;
 #define RAW_TINT 0.6
 #define RAW_VOLUME 0.55
 #define RAW_GLINT 0.7
+// Share of the scene's haze applied to the stone.
+#define STONE_MIST 0.5
 // Glow of the revealed photo on the broken faces facing it.
 #define PHOTO_BOUNCE 0.45
 
@@ -188,6 +190,8 @@ void main(){
 
   vec3 col = mix(skin, broken, raw);
   col *= mix(0.55, 1.0, smoothstep(0.0, 0.5, vObj.y + uHalf.y));
-  col = applyMist(col, vWorld, length(vWorld - uCamPos));
+  // Half the haze the rest of the scene gets: the stone is the subject and the closest thing to the
+  // camera, fogging it as much as the far hills made it sink into the background.
+  col = mix(col, applyMist(col, vWorld, length(vWorld - uCamPos)), STONE_MIST);
   gl_FragColor = vec4(col, 1.0);
 }
