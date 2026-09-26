@@ -50,7 +50,8 @@ export function PostProcess() {
         stencilBuffer: false,
         samples,
         // Scene depth for the depth of field in post.frag.glsl (resolved from the MSAA buffer).
-        depthTexture: low ? undefined : new THREE.DepthTexture(2, 2, THREE.UnsignedIntType),
+        // null, not undefined: three only skips it on `!== null` and crashes on undefined.
+        depthTexture: low ? null : new THREE.DepthTexture(2, 2, THREE.UnsignedIntType),
       }),
     [floatRT, samples, low]
   );
