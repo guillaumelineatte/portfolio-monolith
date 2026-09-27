@@ -22,10 +22,7 @@ import ridgeFragBody from "./ridge.frag.glsl";
 import photoVertBody from "./photo.vert.glsl";
 import photoFragBody from "./photo.frag.glsl";
 
-/**
- * Same as the prototype: PRE = COMMON + NOISE + SKY + MIST, plain concatenation since raw
- * .glsl imports don't resolve #include.
- */
+// No #include with raw .glsl imports, so the chunks are just concatenated.
 const PRE = chunkCommon + chunkNoise + chunkSky + chunkMist;
 
 export const VS_SKY = skyVertBody;

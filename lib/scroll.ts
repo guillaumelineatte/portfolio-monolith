@@ -21,7 +21,7 @@ function tick(dt: number) {
   frameState.scroll.lastY = sy;
 }
 
-/** Creates Lenis (unless reduced motion) and binds the scroll/velocity tick to gsap's ticker. Idempotent. */
+// sets up Lenis (not with reduced motion) on gsap's ticker, safe to call twice
 export function initScroll(reducedMotion: boolean): void {
   if (tickerBound) return;
   tickerBound = true;
@@ -44,7 +44,7 @@ export function initScroll(reducedMotion: boolean): void {
   gsap.ticker.lagSmoothing(0);
 }
 
-/** Starts Lenis once the loader has finished (mirrors the prototype's start()). */
+// start Lenis once the loader is done
 export function startScroll(): void {
   if (started) return;
   started = true;

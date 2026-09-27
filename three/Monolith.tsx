@@ -16,44 +16,34 @@ import { solveFragmentClearance, type CameraPose, type ClearanceResult } from ".
 import { CAM_JITTER } from "./CameraRig";
 import { camFor } from "@/lib/camera-math";
 
-// Debug: draws each fragment's index so I can see which ones block the photo.
-// Plain DOM nodes positioned by hand every frame. drei <Text> needs to fetch a font and ~28
-// <Html> hung the boot, so no drei here. Set to false when done.
+// Debug: shows each fragment's index on screen. Plain DOM nodes moved by hand every frame
+// (drei <Text> wants to fetch a font and 28 <Html> froze the boot). Turn off when done.
 const DEBUG_FRAGMENT_LABELS = true;
 
-// x === z so the bound is round (capsule) instead of a slab. The raymarch only uses uHalf as
-// a rough bounding volume, so it didn't need changes.
+// x === z so it's a round capsule, not a slab. The raymarch only uses uHalf as a rough bound.
 const RADIUS = 0.85;
 const LENGTH = 2.0;
 const THICKNESS = 0.2;
 export const STONE_HALF = new THREE.Vector3(RADIUS, LENGTH / 2 + RADIUS, RADIUS);
 
-// 2.4 rad puts fragment #21 on the back, away from every project camera angle (they stay
-// within ~60deg of front). Idle is a small sway around this, never a full turn.
+// 2.4 rad keeps fragment #21 on the back side, away from the project cameras. The idle motion
+// only sways around this, never a full turn.
 const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
 
 const PHOTO_SIZE = { w: 1.0, h: 1.25 };
 
-// Irregular breaks and curvature-following faces (fracture.ts FractureDetail). jagAmount is the
-// sideways wiggle as a share of each edge's length, capped at jagMax (object units).
-// facet flattens each face toward its own plane (knapped look), lump makes the whole surface
-// slightly irregular. `rings` is a minimum: fracture.ts adds rings (and splits long edges) where a
-// cell spans a lot of curvature. More rings everywhere cost ~12 fps with MSAA (each extra
-// triangle edge re-runs the raymarch on its pixels) for no visible gain.
+// Break shape, see FractureDetail. `rings` is a minimum, fracture.ts adds more where needed.
+// Don't crank it up everywhere: with MSAA it cost ~12 fps for nothing visible.
 const FRACTURE_DETAIL: FractureDetail = { jagSegments: 4, jagAmount: 0.09, jagMax: 0.06, rings: 1, facet: 0.5, lump: 0.035 };
 const FRACTURE_DETAIL_LOW: FractureDetail = { jagSegments: 3, jagAmount: 0.09, jagMax: 0.06, rings: 2, facet: 0.5, lump: 0.035 };
 
-// Hand-picked extra push, on top of the automatic photo clearance below. Additive, object space.
-// Keyed by fracture cell count first: the same index is a different fragment on the 14-cell
-// low-end fracture. Empty for now, the automatic clearance handles 5/15 (the ones that used to need
-// a manual push).
-// SPREAD_EXTRA_MANUAL applies in every open state (home hover preview and project page).
-// SPREAD_EXTRA_FULL only once a project page is open (fades in between SPREAD_PREVIEW and SPREAD_FULL).
+// Manual extra push per fragment, on top of the automatic one. Keyed by cell count first since
+// index 5 on the 14-cell version isn't the same piece. Empty for now.
+// MANUAL = hover + project page, FULL = project page only.
 const SPREAD_EXTRA_MANUAL: Record<number, Record<number, number>> = {};
 const SPREAD_EXTRA_FULL: Record<number, Record<number, number>> = {};
 
-// A fragment that would need more than this extra push to clear the photo slides sideways instead
-// (photoOcclusion.ts's deflectSideways), rather than flying far beyond its neighbours.
+// Past this much extra push, the fragment slides sideways instead of flying off.
 const DEFLECT_ABOVE = 1.0;
 
 function addExtras(a: Record<number, number>, b: Record<number, number> = {}): Record<number, number> {
@@ -62,8 +52,7 @@ function addExtras(a: Record<number, number>, b: Record<number, number> = {}): R
   return out;
 }
 
-/** Both project (or home) camera poses, narrow + wide (a low device can be either), at every
- * corner of CameraRig's drift/parallax range. */
+// camera poses to test: narrow + wide, at each corner of the drift/parallax range
 function jitteredPoses(name: "home" | "project"): CameraPose[] {
   const poses: CameraPose[] = [];
   for (const narrow of [false, true]) {
@@ -79,13 +68,9 @@ function jitteredPoses(name: "home" | "project"): CameraPose[] {
   return poses;
 }
 
-/**
- * Keeps fragments out of the photo, computed from the geometry (photoOcclusion.ts) instead of a
- * hand-tuned index map, which went stale every time the camera moved and pointed at the wrong
- * cells on the 14-fragment low-end fracture. Two stages: home hover (home camera, SPREAD_PREVIEW)
- * and project page (project camera, SPREAD_FULL). Mutates aOutDir for re-aimed fragments.
- * Don't use depthTest:false on the photo instead, it shows through the closed stone.
- */
+// Keeps the fragments out of the photo, for the hover (home camera) and the project page.
+// Can re-aim some fragments (changes aOutDir).
+// Don't try depthTest: false on the photo instead, it shows through the closed stone.
 function photoClearance(fracture: ReturnType<typeof buildFractureGeometry>): ClearanceResult {
   const stoneMatrix = new THREE.Matrix4().compose(
     new THREE.Vector3(0, STONE_HALF.y, 0),
@@ -96,8 +81,7 @@ function photoClearance(fracture: ReturnType<typeof buildFractureGeometry>): Cle
     fracture,
     stoneMatrix,
     photoCenter: new THREE.Vector3(0, STONE_HALF.y, 0),
-    // Runs on the coarse fracture (straight cuts): widen the photo by the most the jagged edges
-    // can stick out so the rendered fragments still clear it.
+    // coarse geometry, so pad the photo by how far the jagged edges can stick out
     photoHalf: new THREE.Vector2(PHOTO_SIZE.w / 2 + FRACTURE_DETAIL.jagMax, PHOTO_SIZE.h / 2 + FRACTURE_DETAIL.jagMax),
     preview: { poses: jitteredPoses("home"), spread: SPREAD_PREVIEW },
     full: { poses: jitteredPoses("project"), spread: SPREAD_FULL, rotScale: 1 + WAVE.rotBoost },
@@ -105,15 +89,13 @@ function photoClearance(fracture: ReturnType<typeof buildFractureGeometry>): Cle
   });
 }
 
-// Idle while closed: small yaw sway around BASE_TILT.y (never a full turn, another face
-// would end up in front) and a slow vertical bob.
-// The whole bob range has to stay in frame for every pose in lib/camera-math.ts, check both
-// ends when changing these.
+// Idle motion when closed: small sway + slow bob. Check the stone stays in frame at both ends
+// of the bob if you change these.
 const IDLE_SWAY_AMPLITUDE = 0.12;
 const IDLE_SWAY_FREQ = 0.15;
 const IDLE_BOB_AMPLITUDE = 0.04;
 const IDLE_BOB_FREQ = 0.22;
-// Seconds for the idle sway to fade out as the stone starts opening / back in once it's closed.
+// fade out/in time of the idle motion (s)
 const IDLE_FADE_OUT = 0.9;
 const IDLE_FADE_IN = 2.5;
 
@@ -134,8 +116,7 @@ export function Monolith() {
 
   const fracture = useMemo(() => {
     const base = { radius: RADIUS, length: LENGTH, count: fractureCount, seed: 1337, thickness: THICKNESS };
-    // The photo check runs on the coarse build (same cells, a fraction of the triangles), its
-    // result is then applied to the detailed one that's actually rendered.
+    // photo check on the coarse build (much faster), then applied to the real one
     const coarse = buildFractureGeometry(base);
     const clearance = photoClearance(coarse);
     const f = buildFractureGeometry({ ...base, detail: low ? FRACTURE_DETAIL_LOW : FRACTURE_DETAIL });
@@ -176,7 +157,7 @@ export function Monolith() {
       vertexShader: VS_STONE,
       fragmentShader: FS_STONE,
       defines: { STEPS: stepsMax, ...MOTION_DEFINES, ...(low ? { LOW_QUALITY: "" } : {}) },
-      // ~28 hand-built prisms, one bad winding would leave a hole. DoubleSide is cheap here.
+      // hand-built prisms, one bad winding = a hole
       side: THREE.DoubleSide,
     });
   }, [stepsMax, low]);
@@ -197,9 +178,7 @@ export function Monolith() {
       vertexShader: VS_PHOTO,
       fragmentShader: FS_PHOTO,
       transparent: true,
-      // Writes depth so the post pass's depth of field sees the photo at the stone's distance and
-      // keeps it sharp (otherwise it inherits the far background's depth behind it and blurs).
-      // photo.frag.glsl discards its transparent pixels so an invisible photo writes nothing.
+      // writes depth so the depth of field keeps it sharp (transparent pixels are discarded).
       // depthTest has to stay on.
       depthWrite: true,
       side: THREE.DoubleSide,
@@ -245,7 +224,7 @@ export function Monolith() {
     };
   }, [material, photoMaterial]);
 
-  // Scale in with the camera intro instead of just fading in.
+  // grows in with the camera intro
   useEffect(() => {
     if (!booted || introFired.current) return;
     introFired.current = true;
@@ -259,7 +238,7 @@ export function Monolith() {
     gsap.to(mesh.scale, { x: 1, y: 1, z: 1, duration: 2.6, delay: 0.3, ease: "expo.out" });
   }, [booted, reducedMotion]);
 
-  // Debug labels (see DEBUG_FRAGMENT_LABELS), plain DOM, created once.
+  // debug labels
   useEffect(() => {
     if (!DEBUG_FRAGMENT_LABELS) return;
     const container = document.createElement("div");
@@ -280,18 +259,15 @@ export function Monolith() {
     };
   }, [fracture]);
 
-  // Priority 2, between CameraRig (1) and LightRig (3): idle motion and stoneInv have to be
-  // updated before LightRig reads them. Also lowers uSteps while opening.
+  // priority 2: after CameraRig, before LightRig (it reads stoneInv)
   useFrame((state, delta) => {
     const mesh = ref.current;
     if (!mesh) return;
     const reduced = useSceneStore.getState().reducedMotion;
     const openAmt = material.uniforms.uOpen.value as number;
     const t = U.uTime.value as number;
-    // Idle sway/bob, faded out while open so every open uses the same base angle/height (the photo
-    // clearance is computed for it). The weight ramps linearly and goes through a smoothstep, so
-    // the stone eases into and out of the sway: switching it straight back on when a close
-    // finished jumped the stone by up to IDLE_SWAY_AMPLITUDE in one frame.
+    // Idle motion fades out while open (the photo check assumes the base angle) and back in
+    // after. Smoothstepped, otherwise the stone jumped when a close finished.
     const idleTarget = openAmt < 0.01 ? 1 : 0;
     const idleRate = idleTarget > idleW.current ? 1 / IDLE_FADE_IN : 1 / IDLE_FADE_OUT;
     const dt = Math.min(delta, 0.1);
@@ -308,8 +284,7 @@ export function Monolith() {
 
     (material.uniforms.uSteps as { value: number }).value = openAmt > 0.02 ? Math.round(stepsMax * 0.6) : stepsMax;
 
-    // Debug: same displacement as stone.vert.glsl for each fragment pivot, projected to screen
-    // by hand to place the label.
+    // same displacement as the vertex shader, projected by hand
     if (DEBUG_FRAGMENT_LABELS) {
       const mu = material.uniforms;
       const wave = {
@@ -356,8 +331,7 @@ export function Monolith() {
         material={material}
         geometry={fracture.geometry}
       />
-      {/* Sibling of the stone, not a child, so it always faces the camera. LightRig billboards
-          it every frame (sceneRefs.photoMesh). */}
+      {/* Not a child of the stone so it always faces the camera (LightRig turns it every frame). */}
       <mesh ref={photoRef} position={[0, STONE_HALF.y, 0]} material={photoMaterial} renderOrder={1}>
         <planeGeometry args={[PHOTO_SIZE.w, PHOTO_SIZE.h]} />
       </mesh>

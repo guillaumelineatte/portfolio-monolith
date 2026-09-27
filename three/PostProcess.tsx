@@ -10,20 +10,14 @@ import { damp } from "@/lib/math";
 import { registerPostImageApi, setImageReducedMotion, registerCompile } from "./postApi";
 import { createPlaceholderTexture } from "./placeholderTexture";
 
-/**
- * FS_POST does its own tonemap + gamma like the r128 prototype. Without this three applies
- * sRGB + tone mapping on top and the colors shift.
- */
+// FS_POST does its own tonemap + gamma, otherwise three adds its own on top and colors shift.
 THREE.ColorManagement.enabled = false;
 
-// Depth of field focuses on the stone's centre (Monolith's STONE_HALF.y, it sits at the origin).
+// DOF focus height = stone center (STONE_HALF.y)
 const FOCUS_Y = 1.85;
 
-/**
- * Priority 4, runs last. Two-pass render (scene -> render target -> fullscreen quad), same as
- * the prototype rather than @react-three/postprocessing. Also handles adaptive resolution
- * from frame time.
- */
+// Priority 4, runs last. Scene -> render target -> fullscreen quad (no postprocessing lib).
+// Also lowers the resolution when frames get slow.
 export function PostProcess() {
   const { gl, scene, camera } = useThree();
   const low = useSceneStore((s) => s.low);
@@ -35,9 +29,7 @@ export function PostProcess() {
     [gl]
   );
 
-  // MSAA on the scene pass: the canvas itself has antialias off (the post quad doesn't need it)
-  // and the fragments' silhouettes/cut edges were visibly stair-stepped. WebGL2 only, and off on
-  // low-end devices where the adaptive resolution below already struggles.
+  // MSAA on the scene pass (the canvas has antialias off). Not on low-end devices.
   const samples = gl.capabilities.isWebGL2 && !low ? 4 : 0;
   const rt = useMemo(
     () =>
@@ -49,8 +41,7 @@ export function PostProcess() {
         depthBuffer: true,
         stencilBuffer: false,
         samples,
-        // Scene depth for the depth of field in post.frag.glsl (resolved from the MSAA buffer).
-        // null, not undefined: three only skips it on `!== null` and crashes on undefined.
+        // depth for the DOF. Has to be null, not undefined, or three crashes
         depthTexture: low ? null : new THREE.DepthTexture(2, 2, THREE.UnsignedIntType),
       }),
     [floatRT, samples, low]
@@ -132,9 +123,8 @@ export function PostProcess() {
   }, [gl, scene, camera, postScene, postCamera]);
 
   useEffect(() => {
-    // Don't set NoColorSpace, it crashes the outputColorSpace setter. Not needed anyway: every
-    // material here is a raw ShaderMaterial without the colorspace/tonemapping chunks, so those
-    // renderer settings don't touch them. <Canvas flat> already turns tone mapping off.
+    // Don't set NoColorSpace, it crashes. All materials are raw shaders anyway so the renderer
+    // color settings don't apply to them.
     gl.toneMapping = THREE.NoToneMapping;
   }, [gl]);
 
@@ -151,7 +141,7 @@ export function PostProcess() {
   }
 
   useFrame((state, delta) => {
-    // Skip rendering while the tab is hidden.
+    // nothing to do when the tab is hidden
     if (document.hidden) return;
 
     const dt = Math.min(delta, 0.1);

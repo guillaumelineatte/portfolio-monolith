@@ -2,7 +2,7 @@ import gsap from "gsap";
 
 const EO = "expo.out";
 
-/** Measures wrapped word spans into line groups and wraps each in an overflow-hidden mask. */
+// groups words into lines and wraps each line in a mask
 export function splitLines(el: HTMLElement): void {
   const text = el.dataset.text || el.textContent?.trim().replace(/\s+/g, " ") || "";
   el.dataset.text = text;
@@ -120,8 +120,7 @@ export function animateOut(view: HTMLElement, reducedMotion: boolean, hasWebGL: 
       view.querySelectorAll<HTMLElement>("[data-visual]").forEach((v) => gsap.to(v, { opacity: 0, duration: 0.5 }));
     }
     if (!lines.length) {
-      // Nothing to animate (home list and project title/meta are static). Resolving right away
-      // gave a hard cut on click, so fade instead.
+      // nothing to animate, fade instead of a hard cut
       gsap.to(view, { opacity: 0, duration: 0.4, ease: "power1.in", onComplete: () => res() });
       return;
     }

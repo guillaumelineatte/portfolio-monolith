@@ -2,48 +2,42 @@ uniform vec3 uCamObj; uniform vec3 uLightObj; uniform vec3 uHalf; uniform float 
 uniform int uSteps;
 uniform float uCrack;
 
-// Broken-stone look (see main). Diffuse strength vs the skin's 0.28, how far light wraps past the
-// terminator, share of the volumetric interior still showing through, glint strength.
+// Broken stone: diffuse, light wrap, how much of the interior shows through, glints.
 #define RAW_DIFFUSE 0.62
 #define RAW_WRAP 0.25
-// How much of the route's light colour tints the broken stone (1 = fully, like the skin). Lower
-// keeps fresh breaks paler than the weathered skin.
+// how much the page colour tints the breaks (lower = paler)
 #define RAW_TINT 0.6
 #define RAW_VOLUME 0.55
 #define RAW_GLINT 0.7
-// Share of the scene's haze applied to the stone.
+// how much of the scene haze the stone gets
 #define STONE_MIST 0.5
-// Glow of the revealed photo on the broken faces facing it.
+// photo light on the broken faces
 #define PHOTO_BOUNCE 0.45
 
-// Polished skin: relief strength, GGX highlight strength, sky reflection strength, roughness range.
+// Polished skin: relief, highlight, sky reflection, roughness range.
 #define SKIN_BUMP 0.5
 #define SKIN_SPEC 1.2
 #define SKIN_ENV 0.45
 #define SKIN_ROUGH_MIN 0.22
 #define SKIN_ROUGH_MAX 0.5
-// Backlit silhouette rim: strength and tightness.
+// backlit rim: strength, tightness
 #define SKIN_RIM 0.9
 #define SKIN_RIM_POWER 5.0
 
-// Interior: per-channel absorption along the path to the light (red carries furthest: warm depths,
-// cooler thin edges; was a single grey 1.7), share of the stylised height palette (was 0.62, set
-// back to it for the old look), marble veins (density + colour).
+// Interior: absorption per channel (red goes deepest), stylised palette amount (0.62 for the
+// old look), marble veins.
 #define SSS_ABSORB vec3(1.25, 1.75, 2.35)
 #define PALETTE_MIX 0.45
 #define VEIN_STRENGTH 0.8
 #define VEIN_COLOR vec3(0.62, 0.52, 0.47)
 
-// Crack propagation: the edge glow spreads from the unrolled-space centre (where fracture.ts's
-// aDelay starts, so it runs ahead of the fragments opening) as uCrack goes 0 -> 1, with a hotter
-// leading front. REACH is in unrolled units (the farthest cell is ~3.3 away).
+// Cracks light up from the center outward as uCrack goes 0 -> 1, with a brighter front.
 #define CRACK_REACH 3.6
 #define CRACK_FRONT 2.4
 
-uniform mat3 uModelRot; // stone mesh rotation, object -> world (for the sky reflection)
+uniform mat3 uModelRot; // object -> world rotation, for the sky reflection
 
-// Low-frequency undulation + finer pitting, in rest-pose object space so the pattern stays
-// glued to each fragment as it moves.
+// Surface relief, in rest-pose object space so it sticks to the fragments.
 float skinHeight(vec3 p){
   float h = snoise(p * 3.1) * 0.55 + snoise(p * 8.7 + 11.3) * 0.3;
 #ifndef LOW_QUALITY
@@ -66,11 +60,8 @@ float ggxD(float nh, float a){
 }
 varying vec3 vObj; varying vec3 vNrm; varying vec3 vWorld;
 varying vec3 vBoundsMin; varying vec3 vBoundsMax;
-varying float vFace;
-// Distance to this fragment's own (jagged) outline, unrolled units (fracture.ts aEdgeDist): the
-// cracks that glow with uCrack. Replaces a per-pixel nearest-two-seeds loop that could only draw
-// straight bisectors.
-varying float vEdgeDist; // fracture.ts FACE_*: 0 polished outer skin, 1/2 freshly broken (inner face, cut walls)
+varying float vFace; // 0 outer skin, 1/2 broken (inner face, cut walls)
+varying float vEdgeDist; // distance to the fragment outline, for the crack glow
 
 float boxExit(vec3 ro, vec3 rd, vec3 hb){
   vec3 s = step(0.0, rd) * 2.0 - 1.0;
@@ -85,7 +76,7 @@ vec3 palette(float t){
   return t < 1.0 ? mix(amber, rose, smoothstep(0.0, 1.0, t)) : mix(rose, blue, smoothstep(1.0, 2.0, t));
 }
 
-/** Inverse of the unroll in fracture.ts (phi*radius, y). */
+// inverse of the unroll in fracture.ts
 vec2 toUnrolled(vec3 p){
   float phi = atan(p.z, p.x);
   return vec2(phi * uHalf.x, p.y);
@@ -115,7 +106,7 @@ void main(){
     float y = p.y + w * 0.55;
     float layers = 0.5 + 0.5 * sin(y * 6.5 + w * 2.5);
 #ifndef LOW_QUALITY
-    // Thin, domain-warped sheets (warped by the same `w` as the layers, one extra noise per step).
+    // thin warped veins
     float vein = (1.0 - smoothstep(0.0, 0.07, abs(snoise(p * 2.2 + vec3(w * 1.4))))) * VEIN_STRENGTH;
 #else
     float vein = 0.0;
@@ -138,7 +129,7 @@ void main(){
   float back = clamp(c * 0.5 + 0.5, 0.0, 1.0);
   float raw = step(0.5, vFace);
 
-  // Polished outer skin.
+  // polished skin
   float edgeDist = vEdgeDist;
   float edge = 1.0 - smoothstep(0.0, 0.035, edgeDist);
   vec3 alab = vec3(0.82, 0.77, 0.70);
@@ -148,9 +139,8 @@ void main(){
   surf = mix(surf, surf * 0.4, edge * 0.7);
   vec3 skin = surf + vol;
   skin += uLightColor * uIntensity * (fres * back * 0.35);
-  // Backlit rim: the light sits behind the stone (LightRig), so its thin silhouette edges glow
-  // through, the way translucent stone does against a low sun. Tight (high power) so it reads as
-  // an outline separating the stone from the sky, not a general brightening.
+  // The light is behind the stone, so the edges glow through a bit. Keeps it from blending
+  // into the sky.
   float rim = pow(1.0 - clamp(dot(nb, -rd), 0.0, 1.0), SKIN_RIM_POWER);
   skin += mix(vec3(1.0), uLightColor, 0.7) * uIntensity * rim * smoothstep(0.2, 1.0, back) * SKIN_RIM;
   float crackD = length(toUnrolled(ro)) + snoise(ro * 2.3) * 0.25;
@@ -158,7 +148,7 @@ void main(){
   float crackLit = smoothstep(reach, reach - 0.4, crackD);
   float crackFront = exp(-abs(crackD - reach) * 7.0) * (1.0 - smoothstep(0.85, 1.0, uCrack));
   skin += uLightColor * uIntensity * edge * (crackLit * uCrack * 1.6 + crackFront * CRACK_FRONT);
-  // Soft GGX highlight (object space, like L), roughness drifting across the surface.
+  // soft highlight
   vec3 V = -rd;
   vec3 H = normalize(L + V);
   float nv = max(dot(nb, V), 1e-3);
@@ -168,16 +158,14 @@ void main(){
   float vis = 0.25 / ((ndl * (1.0 - k) + k) * (nv * (1.0 - k) + k));
   float F = 0.04 + 0.96 * pow(1.0 - max(dot(H, V), 0.0), 5.0);
   skin += uLightColor * uIntensity * ggxD(max(dot(nb, H), 0.0), a) * F * vis * ndl * SKIN_SPEC;
-  // Sky reflection at grazing angles, in world space so it matches the actual sky.
+  // sky reflection on the edges
   vec3 nW = normalize(uModelRot * nb);
   vec3 vW = normalize(uCamPos - vWorld);
   float fW = 0.04 + 0.96 * pow(1.0 - max(dot(nW, vW), 0.0), 5.0);
   skin += skyColor(reflect(-vW, nW)) * fW * SKIN_ENV * (1.0 - rough);
 
-  // Freshly broken stone (inner face + cut walls): paler, chalky, wrap-lit so it doesn't go
-  // black away from the light, fine grain and sparse crystalline glints. The crack glow above
-  // can't apply here: every point of a cut wall sits on a cell boundary, so it lit whole walls
-  // flat orange. Only the burst's flare (uCrack > 1) warms them briefly.
+  // Broken stone: paler, chalky, grainy, a few glints. No crack glow here (the whole wall is on
+  // an edge, it turned it all orange), only the flare during the burst.
   float grain = snoise(ro * 34.0) * 0.5 + 0.5;
   float grainFine = snoise(ro * 97.0) * 0.5 + 0.5;
   vec3 rawAlb = vec3(0.93, 0.90, 0.85) * (0.8 + 0.2 * grain) * (0.9 + 0.1 * grainFine);
@@ -189,8 +177,7 @@ void main(){
   vec3 broken = rawSurf + vol * RAW_VOLUME;
   broken += uLightColor * uIntensity * glint * RAW_GLINT;
   broken += uLightColor * uIntensity * max(uCrack - 1.0, 0.0) * 0.9;
-  // The revealed photo sits at the stone's centre (object origin): it lights the broken faces
-  // turned toward it, warm like the project colour, falling off with distance.
+  // the photo in the middle lights the faces turned toward it
   vec3 toPhoto = -ro;
   float dPhoto = length(toPhoto);
   float photoLit = max(dot(n, toPhoto / max(dPhoto, 1e-3)), 0.0) / (1.0 + dPhoto * dPhoto * 1.5);
@@ -198,8 +185,7 @@ void main(){
 
   vec3 col = mix(skin, broken, raw);
   col *= mix(0.55, 1.0, smoothstep(0.0, 0.5, vObj.y + uHalf.y));
-  // Half the haze the rest of the scene gets: the stone is the subject and the closest thing to the
-  // camera, fogging it as much as the far hills made it sink into the background.
+  // less haze on the stone, otherwise it sinks into the background
   col = mix(col, applyMist(col, vWorld, length(vWorld - uCamPos)), STONE_MIST);
   gl_FragColor = vec4(col, 1.0);
 }

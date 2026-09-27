@@ -19,17 +19,14 @@ interface Displayed {
   children: ReactNode;
 }
 
-/**
- * Every route change goes through one queue: camera move, light color, mask out the old view,
- * swap the DOM, then reveal the new one. Based on the prototype's go(). Driven by
- * usePathname() so back/forward and fast clicks all take the same path.
- */
+// All route changes go through here: camera, light color, hide the old view, swap, show the new
+// one. Based on usePathname() so back/forward and fast clicks work the same way.
 export function RouteTransitionProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [displayed, setDisplayed] = useState<Displayed>({ pathname, children });
   const containerRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const busyRef = useRef(true); // released once the intro transition completes
+  const busyRef = useRef(true); // false once the intro is done
   const pendingRef = useRef<Displayed | null>(null);
   const mountPrepped = useRef(false);
   const introFired = useRef(false);
@@ -50,11 +47,10 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
   function visualHandler(route: RouteDescriptor) {
     return (el: HTMLElement) => {
       if (route.name !== "project") return;
-      if (!containerRef.current?.contains(el)) return; // stale callback from a superseded transition
+      if (!containerRef.current?.contains(el)) return; // old transition
       const project = projects[route.index];
       const { reducedMotion } = useSceneStore.getState();
-      // Keep the stone open with the photo inside while a project page is shown (same as the
-      // home hover, just triggered by the route).
+      // keep the stone open with the photo while on a project page
       openStone(getProjectTexture(project, route.index), route.index, reducedMotion, true);
     };
   }
@@ -72,19 +68,14 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     const route = routeFromPathname(next.pathname);
     const fromRoute = routeFromPathname(displayed.pathname);
 
-    // Don't close the stone when going to another project (it just crossfades), or when going
-    // back home: the cursor is usually still over the clicked item and HomeView reopens it at
-    // SPREAD_PREVIEW on mount, closing here would flicker. HomeView closes it itself if nothing
-    // ends up hovered.
+    // Don't close it for another project (crossfade) or going home (the cursor is usually still
+    // on the item, HomeView handles it). Closing here flickers.
     if (route.name === "about") closeStone(reducedMotion);
-    // Opening a project: burst the stone open right on click, alongside the camera move (both end
-    // together), instead of waiting for the new page's visual to reveal ~1.4s later, which landed
-    // the burst on the camera's peak speed. visualHandler's later call is then a no-op.
+    // open the stone right on click, with the camera move (the later call does nothing)
     if (route.name === "project") {
       openStone(getProjectTexture(projects[route.index], route.index), route.index, reducedMotion, true);
     }
-    // Going back home, match the camera duration to the stone's slow retreat (driveSpread in
-    // stoneCrack.ts) so both read as one move.
+    // going home: camera takes as long as the stone closing
     const cameraDuration = fromRoute.name === "project" && route.name === "home" ? RETURN_HOME_DURATION : undefined;
     moveCamera(route, false, reducedMotion, cameraDuration);
     setLight(routeColor(route));
@@ -97,8 +88,7 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
       }
       resetScrollPosition();
       document.title = titleFor(route);
-      // afterOut runs inside GSAP's ticker, so the rAF below lands a frame late and the new view
-      // flashes before prepareView hides it. Hide the container right away instead.
+      // hide right away, the rAF below lands a frame late and the new view flashes
       if (containerRef.current) containerRef.current.style.visibility = "hidden";
       setDisplayed(next);
 
@@ -133,7 +123,7 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Once on mount, so the header label/title are right before the loader goes away.
+  // set header label and title before the loader goes away
   useEffect(() => {
     if (mountPrepped.current) return;
     mountPrepped.current = true;
@@ -148,7 +138,7 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Intro, once the loader is done (prototype's go(first, true)).
+  // intro, once the loader is done
   useEffect(() => {
     if (!booted || introFired.current) return;
     introFired.current = true;
@@ -171,8 +161,7 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booted]);
 
-  // Actual navigation. If the pathname still matches, renderedChildren already follows
-  // children (RSC refresh etc), nothing to do.
+  // navigation (same pathname = nothing to do)
   useEffect(() => {
     if (pathname === displayed.pathname) return;
     const next: Displayed = { pathname, children };
@@ -186,7 +175,7 @@ export function RouteTransitionProvider({ children }: { children: ReactNode }) {
 
   const renderedChildren = pathname === displayed.pathname ? children : displayed.children;
 
-  // Resize: resplit wrapped text and re-target (not re-transition) the camera.
+  // resize: re-split the text and move the camera
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let lastW = window.innerWidth;

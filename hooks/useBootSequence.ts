@@ -10,16 +10,14 @@ import { wait, nextFrame } from "@/lib/timing";
 import { startScroll } from "@/lib/scroll";
 import { inter } from "@/app/fonts";
 
-/**
- * Loader progress (fonts, visuals, gl setup, shader compile) with a minimum duration, then
- * removes `is-loading`, starts Lenis and sets `booted` so the intro can run.
- */
+// Loader: fonts, visuals, gl, shaders, with a minimum duration. Then removes `is-loading`,
+// starts Lenis and sets `booted`.
 export function useBootSequence(): number {
   const [displayed, setDisplayed] = useState(0);
   const ranRef = useRef(false);
 
   useEffect(() => {
-    // ranRef rather than a cleanup flag: Strict Mode's double mount must not cancel this.
+    // ref, not a cleanup flag, Strict Mode mounts twice
     if (ranRef.current) return;
     ranRef.current = true;
 
@@ -56,7 +54,7 @@ export function useBootSequence(): number {
       prog(22);
       await nextFrame();
 
-      // 3 at a time, loading them one by one with a timeout each made the loader crawl.
+      // 3 at a time, one by one was way too slow
       for (let i = 0; i < projects.length; i += 3) {
         const chunk = projects.slice(i, i + 3);
         await Promise.all(chunk.map((p, j) => preloadProjectTexture(p, i + j)));

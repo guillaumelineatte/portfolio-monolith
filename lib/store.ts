@@ -1,9 +1,6 @@
 import { create } from "zustand";
 
-/**
- * Plain object written by GSAP tweens and read in useFrame. No React, so no re-renders.
- * Same role as `S.cam` / `S.img` / `S.scrollP` in the prototype.
- */
+// Plain object written by GSAP and read in useFrame, no React so no re-renders.
 export const frameState = {
   cam: {
     pos: { x: 0.4, y: 1.75, z: 9.6 },
@@ -33,9 +30,9 @@ interface SceneState {
   hasWebGL: boolean;
   low: boolean;
   headerLabel: string;
-  /** Whether the client-only capability probe (lib/device.ts, run once from CanvasRoot) has run. */
+  // device probe done (CanvasRoot)
   probed: boolean;
-  /** Whether the loader's boot sequence (hooks/useBootSequence.ts) has finished. */
+  // loader finished
   booted: boolean;
   setReducedMotion: (v: boolean) => void;
   setHasWebGL: (v: boolean) => void;
@@ -45,10 +42,7 @@ interface SceneState {
   setBooted: (v: boolean) => void;
 }
 
-/**
- * Zustand store for the reactive bits (header label, "Copied" live region, boot gating).
- * Non-React code uses useSceneStore.getState() so it never subscribes.
- */
+// Zustand for the reactive bits. Non-React code uses getState() so it doesn't subscribe.
 export const useSceneStore = create<SceneState>((set) => ({
   reducedMotion: false,
   hasWebGL: false,

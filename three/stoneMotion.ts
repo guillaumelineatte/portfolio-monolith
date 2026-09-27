@@ -1,31 +1,25 @@
-/**
- * Per-fragment motion curves for the stone, shared by stone.vert.glsl (as defines) and its JS
- * mirrors (debug labels in Monolith.tsx, tests). Keep both sides in sync through these constants.
- *
- * Every fragment moves on its own time window (inner cells first, ordered by aDelay) and on the
- * same curve, fragEase: zero speed at both ends, fast early, long gentle settle. The driving
- * uniforms (uOpen, uWaveT) are tweened LINEARLY, all the easing lives here. The old curve
- * (1 - 2^-10x, and back.out for the burst) peaked at the very first frame, so each fragment fired
- * off at full speed, which read as a string of small jolts, and doubling it with an expo.out on
- * uOpen made the last fragments start late and crawl.
- */
+// Motion curves for the fragments, shared with stone.vert.glsl (as defines) and the JS copies.
+//
+// Each fragment has its own time window (inner ones first) and the same curve, fragEase: starts
+// and stops softly. uOpen and uWaveT are tweened linearly, the easing is all here. Curves that
+// start at full speed looked jerky.
 
-/** Opening / closing (uOpen 0 <-> 1). */
+// opening / closing (uOpen)
 export const OPEN = {
-  /** Share of uOpen's range over which fragment start times are spread. */
+  // how spread out the start times are
   stagger: 0.4,
-  /** Seconds for a full 0 -> 1 open (linear uOpen). */
+  // seconds for a full open
   duration: 3.2,
 };
 
-/** Preview -> full burst on opening a project (uWaveT 0 -> 1, see stoneCrack.ts burstTo). */
+// preview -> full when a project opens (burstTo in stoneCrack.ts)
 export const WAVE = {
   stagger: 0.35,
-  /** Extra open rotation at full spread, as a fraction of each fragment's base angle. */
+  // extra rotation at full spread
   rotBoost: 0.5,
 };
 
-/** aDelay tops out at 0.75 (fracture.ts). */
+// max aDelay (fracture.ts)
 const MAX_DELAY = 0.75;
 
 export const MOTION_DEFINES = {
@@ -35,19 +29,19 @@ export const MOTION_DEFINES = {
   STAGGER_MAX_DELAY: MAX_DELAY.toFixed(4),
 };
 
-/** 1 - (1-x)^3 (1+3x): speed 12x(1-x)^2, zero at both ends, peak at x = 1/3. */
+// 1 - (1-x)^3 (1+3x): zero speed at both ends, fastest at x = 1/3
 export function fragEase(x: number): number {
   const y = 1 - x;
   return 1 - y * y * y * (1 + 3 * x);
 }
 
-/** A fragment's own 0..1 progress, given the driving uniform and its aDelay. */
+// a fragment's own 0..1 progress
 export function staggerLocal(t: number, delay: number, stagger: number): number {
   const d = Math.min(1, Math.max(0, delay / MAX_DELAY));
   return Math.min(1, Math.max(0, (t - d * stagger) / (1 - stagger)));
 }
 
-/** stone.vert.glsl's `eased`: how far open this fragment is. */
+// same as `eased` in stone.vert.glsl
 export function openEased(uOpen: number, delay: number): number {
   return fragEase(staggerLocal(uOpen, delay, OPEN.stagger));
 }
@@ -60,7 +54,7 @@ export interface WaveState {
   uWaveT: number;
 }
 
-/** stone.vert.glsl's `baseSpread`: uSpread normally, the staggered wave while one runs. */
+// same as `baseSpread` in stone.vert.glsl
 export function fragmentBaseSpread(s: WaveState, delay: number): number {
   const wave = s.uWaveFrom + (s.uWaveTo - s.uWaveFrom) * fragEase(staggerLocal(s.uWaveT, delay, WAVE.stagger));
   return s.uSpread + (wave - s.uSpread) * s.uWaveOn;

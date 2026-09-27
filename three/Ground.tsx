@@ -9,12 +9,8 @@ import { U } from "./uniforms";
 const INNER_R = 0.4;
 const OUTER_R = 110;
 
-/**
- * Polar mesh for the sea of clouds (displaced in ground.vert.glsl): rings spaced exponentially
- * from just under the stone out to the horizon, so each triangle covers roughly the same screen
- * area. A uniform grid wasted most of its triangles as sub-pixel slivers in the distance, which
- * cost ~3 fps under MSAA.
- */
+// Round mesh for the sea of clouds, rings get wider with distance so triangles stay about the
+// same size on screen. A regular grid wasted tons of tiny triangles far away (~3 fps).
 function buildGroundGeometry(rings: number, segs: number): THREE.BufferGeometry {
   const pos: number[] = [0, 0, 0];
   const ringStart = (i: number) => 1 + i * segs;
@@ -26,7 +22,7 @@ function buildGroundGeometry(rings: number, segs: number): THREE.BufferGeometry 
     }
   }
   const idx: number[] = [];
-  // Centre disc, then quads between consecutive rings (wound so the faces point up).
+  // center, then quads between rings (facing up)
   for (let j = 0; j < segs; j++) idx.push(0, ringStart(0) + ((j + 1) % segs), ringStart(0) + j);
   for (let i = 0; i < rings; i++) {
     for (let j = 0; j < segs; j++) {
@@ -58,6 +54,6 @@ export function Ground() {
     []
   );
 
-  // Displaced in the vertex shader; the flat bounds are close enough but keep it simple.
+  // moved in the vertex shader, skip culling
   return <mesh material={material} geometry={geometry} frustumCulled={false} />;
 }

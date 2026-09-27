@@ -8,14 +8,11 @@ import { sceneRefs } from "./sceneRefs";
 import { frameState, useSceneStore } from "@/lib/store";
 import { damp } from "@/lib/math";
 
-/** Largest offset the idle drift + pointer parallax below add to the camera position, per axis.
- * Used by Monolith's photo-occlusion check, keep in sync with the numbers in useFrame. */
+// Max offset from the idle drift + mouse parallax below. Used by the photo check in Monolith,
+// update it if you change the numbers in useFrame.
 export const CAM_JITTER = { x: 0.3 + 0.18 + 0.45, y: 0.1 + 0.2, z: 0.26 };
 
-/**
- * Priority 1, runs first every frame. Sets uTime, idle drift + mouse parallax, and keeps the
- * sky dome on the camera. First half of the prototype's update(dt).
- */
+// Priority 1, runs first. uTime, idle drift, mouse parallax, sky follows the camera.
 export function CameraRig() {
   const par = useRef({ x: 0, y: 0 });
 
@@ -47,7 +44,7 @@ export function CameraRig() {
     camera.lookAt(ct.x + par.current.x * 0.12, ct.y + par.current.y * 0.05, ct.z);
     U.uCamPos.value.copy(camera.position);
 
-    // fov widens on narrow/tall screens (prototype's resize()).
+    // wider fov on narrow screens
     const aspect = state.size.width / state.size.height;
     const targetFov = aspect < 0.8 ? 48 : aspect < 1.2 ? 42 : 35;
     if (camera.fov !== targetFov) {

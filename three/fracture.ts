@@ -1,39 +1,34 @@
 import * as THREE from "three";
 
-/**
- * Fragment geometry for the stone. The capsule surface is cut into Voronoi cells in an
- * unrolled cylindrical space (so the cuts follow the curve), each cell is extruded inward into
- * a prism, and everything goes into one BufferGeometry. Per-vertex attributes drive the open
- * animation, see three/shaders/stone.*.glsl.
- */
+// Stone fragments: Voronoi cells cut on the unrolled capsule surface, each one extruded inward
+// into a prism, all merged in one geometry. The vertex attributes drive the opening
+// (shaders/stone.*.glsl).
 
-/** aFaceType values: the polished outer skin, and the two kinds of freshly broken surface (the
- * prism's inner face and its cut walls), which stone.frag.glsl shades as raw stone. */
+// aFaceType: polished outer skin, or broken stone (inner face / cut walls).
 export const FACE_OUTER = 0;
 export const FACE_INNER = 1;
 export const FACE_WALL = 2;
 
-/** Surface detail. Omit for the coarse version (straight cuts, one fan per face), which
- * photoOcclusion.ts uses: same cells in the same order, far fewer triangles to test. */
+// Leave it out for the coarse version (straight cuts), used by photoOcclusion.ts: same cells,
+// way fewer triangles.
 export interface FractureDetail {
-  /** Segments each Voronoi edge is split into, displaced sideways for an irregular break. */
+  // segments per edge, pushed sideways so the break isn't a straight line
   jagSegments: number;
-  /** Max sideways displacement as a fraction of the edge length, capped by jagMax. */
+  // sideways offset, fraction of the edge length, capped at jagMax
   jagAmount: number;
   jagMax: number;
-  /** Concentric rings each face is triangulated into (follows the capsule's curvature). */
+  // min rings per face (more rings = follows the curve better)
   rings: number;
-  /** 0..1: how much each cell's face is flattened toward its own plane (knapped-stone facets).
-   * Edges stay on the shared surface so neighbours still fit, only the interior flattens. */
+  // 0..1, flattens each face toward its own plane (knapped look). Edges don't move.
   facet: number;
-  /** Low-frequency bumpiness of the whole surface (object units), so it isn't a perfect capsule. */
+  // overall bumpiness so it's not a perfect capsule
   lump: number;
 }
 
 export interface FractureParams {
   detail?: FractureDetail;
   radius: number;
-  length: number; // cylindrical section length (excludes the hemispherical caps)
+  length: number; // straight part, without the caps
   count: number;
   seed: number;
   thickness: number;
@@ -43,14 +38,13 @@ export interface FractureCellInfo {
   pivot: THREE.Vector3;
   outDir: THREE.Vector3;
   delay: number;
-  /** Extra spread, object space, ADDED to uSpread (not multiplied, that overshoots at SPREAD_FULL).
-   * 0 at build time, filled in by setSpreadExtra() from photoOcclusion.ts. */
+  // extra push added to uSpread (added, not multiplied: a multiplier overshoots at full spread)
   spreadExtra: number;
-  /** Same, but only applied once the stone is fully expanded (project page), see stone.vert.glsl. */
+  // same but only on the project page
   spreadExtraFull: number;
-  /** Axis * angle of the open rotation, same as the aRotAxis attribute. */
+  // axis * angle, same as aRotAxis
   rotAxis: THREE.Vector3;
-  /** Vertex range in the merged geometry. */
+
   vertexStart: number;
   vertexCount: number;
 }
@@ -58,7 +52,7 @@ export interface FractureCellInfo {
 export interface FractureResult {
   geometry: THREE.BufferGeometry;
   count: number;
-  /** Pivot/outDir/delay per cell, same order as the vertex attributes (used by the debug labels). */
+  // same order as the vertex data
   cells: FractureCellInfo[];
 }
 
@@ -78,7 +72,7 @@ function mulberry32(a: number) {
   };
 }
 
-/** Rejection-sampled seeds, biased denser toward the unrolled space's center. */
+// denser toward the middle
 function sampleSeeds(count: number, W: number, H: number, rng: () => number): Vec2[] {
   const seeds: Vec2[] = [];
   let guard = 0;
@@ -93,7 +87,7 @@ function sampleSeeds(count: number, W: number, H: number, rng: () => number): Ve
   return seeds;
 }
 
-/** Sutherland-Hodgman clip of `poly` by the half-plane closer to `a` than to `b`. */
+// keep the half of poly that's closer to a than to b
 function clipHalfPlane(poly: Poly, a: Vec2, b: Vec2): Poly {
   const mx = (a.x + b.x) / 2;
   const my = (a.y + b.y) / 2;
@@ -120,8 +114,7 @@ function clipHalfPlane(poly: Poly, a: Vec2, b: Vec2): Poly {
   return out;
 }
 
-/** Clips the polygon to one side of a horizontal line. Needed near the poles, there's no
-    ghost seed there to bound the cells. */
+// needed at the poles, nothing else bounds the cells there
 function clipHorizontal(poly: Poly, limit: number, keepBelow: boolean): Poly {
   const inside = (p: Vec2) => (keepBelow ? p.y <= limit : p.y >= limit);
   const out: Poly = [];
@@ -187,17 +180,13 @@ function outwardNormal(x: number, y: number, R: number, halfLen: number): THREE.
   return p.clone().sub(new THREE.Vector3(0, capCenterY, 0)).normalize();
 }
 
-/**
- * Splits every edge of `poly` into `detail.jagSegments` and pushes the inner points sideways. The
- * offset only depends on the edge itself (endpoints in canonical order, x wrapped by the seam
- * period W), so the two cells sharing an edge get the exact same broken line and still fit.
- */
-/** Max unrolled span (≈ arc length on the capsule) of one boundary segment, and of one ring step
- * from a cell's seed to its outline: straight triangles longer than that cut visibly under the
- * curve, mostly on the caps, and expose the neighbouring cut walls as pale slivers. */
+// Longer straight triangles cut under the curve and you see the neighbour's wall through
+// (pale slivers on the caps).
 const MAX_SPAN = 0.22;
 const MAX_RING_SPAN = 0.45;
 
+// Irregular breaks. The offset only depends on the edge, so both cells sharing it get the
+// same line and still fit together.
 function jagPolygon(poly: Poly, detail: FractureDetail, W: number, H: number): Poly {
   const out: Poly = [];
   const q = (v: number) => Math.round(v * 1000);
@@ -207,15 +196,12 @@ function jagPolygon(poly: Poly, detail: FractureDetail, W: number, H: number): P
     const b = poly[(i + 1) % poly.length];
     out.push(a);
     const len = Math.hypot(b.x - a.x, b.y - a.y);
-    // Edges on the pole clip lines collapse to the capsule's tip: jagging them sideways would
-    // push points past the tip (visible flaps at the top/bottom).
+    // leave pole edges straight, jagging them pokes past the tip
     const onPole = Math.abs(a.y) > H - 1e-6 && Math.abs(b.y) > H - 1e-6;
-    // Long spans around the capsule also get more points (MAX_SPAN), whatever jagSegments says: a
-    // single straight triangle across a wide arc cuts under the curve and exposes the neighbour's
-    // cut wall (seen as pale slivers on the caps). Depends only on the edge, so both cells agree.
+    // long edges get more points anyway (MAX_SPAN)
     const segments = Math.max(detail.jagSegments, Math.ceil(Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) / MAX_SPAN));
     if (len < 1e-4 || segments < 2 || onPole) continue;
-    // Canonical direction so both cells compute the same curve.
+    // same direction for both cells
     const ka = q(wrap(a.x)) * 7919 + q(a.y);
     const kb = q(wrap(b.x)) * 7919 + q(b.y);
     const flip = ka > kb;
@@ -223,13 +209,13 @@ function jagPolygon(poly: Poly, detail: FractureDetail, W: number, H: number): P
     const phases = [rng() * 6.283, rng() * 6.283, rng() * 6.283];
     const weights = [rng() - 0.5, (rng() - 0.5) * 0.6, (rng() - 0.5) * 0.35];
     const amp = Math.min(detail.jagAmount * len, detail.jagMax);
-    // Perpendicular of the canonical direction.
+
     const dx = (flip ? a.x - b.x : b.x - a.x) / len;
     const dy = (flip ? a.y - b.y : b.y - a.y) / len;
     for (let k = 1; k < segments; k++) {
       const t = k / segments;
       const tc = flip ? 1 - t : t;
-      // Zero at both endpoints, a few irregular wiggles in between.
+      // 0 at both ends, a few wiggles in between
       let off = 0;
       for (let h = 0; h < 3; h++) off += weights[h] * Math.sin(Math.PI * tc * (h + 1) + phases[h] * h);
       off *= Math.sin(Math.PI * tc) * amp * 2;
@@ -250,7 +236,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   const rng = mulberry32(seed);
   const realSeeds = sampleSeeds(count, W, Htot, rng);
 
-  // Ghost copies at x-W / x+W so cells wrap correctly across the phi=0/2*PI seam.
+  // copies at x-W / x+W so the cells wrap around the seam
   const allSeeds: Vec2[] = [];
   for (const s of realSeeds) allSeeds.push(s, { x: s.x - W, y: s.y }, { x: s.x + W, y: s.y });
 
@@ -285,11 +271,8 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
     const pivot3 = outerPivot.clone().sub(nrmPivot.clone().multiplyScalar(thickness * 0.5));
     const outDir = nrmPivot.clone();
 
-    // Face grid in unrolled space: ring 0 is the seed, ring `rings` the (jagged) boundary. The
-    // seed lies inside its Voronoi cell and the jag is small, so the cell stays star-shaped
-    // around it (a plain fan from vertex 0, as before, breaks on the now non-convex outline).
-    // Ring count per cell: detail.rings at least, more for cells whose seed is far from their
-    // outline (large cells, and the caps where cells reach all the way to the tip).
+    // Rings from the seed (ring 0) to the outline. A simple fan breaks now that the outline
+    // isn't convex. Big cells (and the caps) get more rings.
     const maxSpoke = Math.max(...poly.map((p) => Math.hypot(p.x - s.x, p.y - s.y)));
     const rings = detail ? Math.max(detail.rings, Math.min(4, Math.ceil(maxSpoke / MAX_RING_SPAN))) : 1;
     const n = poly.length;
@@ -301,8 +284,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
       edgeDist.push(poly.map((p) => (1 - f) * Math.hypot(p.x - s.x, p.y - s.y)));
     }
     const centerEdge = edgeDist[0].reduce((a, b) => a + b, 0) / n;
-    // Shared surface (curved capsule + lumps): only depends on the unrolled point, so the two
-    // cells meeting at an edge agree on it.
+    // capsule + lumps, only depends on the point so neighbours agree
     const lumpAt = (p: Vec2) => {
       if (!detail) return 0;
       const phi = p.x / R;
@@ -315,11 +297,11 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
     };
     const surfaceAt = (p: Vec2) =>
       surfacePoint(p.x, p.y, R, halfLen).add(outwardNormal(p.x, p.y, R, halfLen).multiplyScalar(lumpAt(p)));
-    // Facet plane through the cell's outline, facing outward.
+    // facet plane
     const planeC = new THREE.Vector3();
     for (const p of poly) planeC.add(surfaceAt(p));
     planeC.divideScalar(n);
-    // `f` is the ring fraction (0 seed, 1 outline): the outline stays on the shared surface.
+    // f = ring fraction, 0 at the seed, 1 on the outline (outline doesn't move)
     const facetW = (f: number) => (detail ? detail.facet * (1 - f * f) : 0);
     const outerAt = (p: Vec2, f = 1) => {
       const v = surfaceAt(p);
@@ -364,7 +346,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
       faceTypes.push(face);
       edgeDists.push(edge);
     };
-    // One face (outer or inner) triangle from grid points (ring, index) triplets.
+    // one triangle of the outer or inner face, from (ring, index) points
     const faceTri = (inner: boolean, pts: [number, number][]) => {
       const order = inner ? [pts[0], pts[2], pts[1]] : pts;
       for (const [r, i] of order) {
@@ -397,7 +379,7 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
       }
     }
 
-    // Cut walls along the (jagged) boundary.
+    // cut walls
     const outerPts = poly.map((p) => outerAt(p));
     const innerPts = poly.map((p) => innerAt(p));
     for (let i = 0; i < n; i++) {
@@ -439,15 +421,13 @@ export function buildFractureGeometry(params: FractureParams): FractureResult {
   geometry.setAttribute("aBoundsMin", new THREE.Float32BufferAttribute(boundsMin, 3));
   geometry.setAttribute("aBoundsMax", new THREE.Float32BufferAttribute(boundsMax, 3));
   geometry.setAttribute("aFaceType", new THREE.Float32BufferAttribute(faceTypes, 1));
-  // Unrolled-space distance to the cell's own (jagged) boundary, exact at the edges: the crack
-  // glow follows the real broken outline instead of re-deriving straight bisectors per pixel.
+  // distance to the cell outline, for the crack glow
   geometry.setAttribute("aEdgeDist", new THREE.Float32BufferAttribute(edgeDists, 1));
 
   return { geometry, count: cells.length, cells: cellsInfo };
 }
 
-/** Writes extra spread per cell index into the aSpreadExtra / aSpreadExtraFull attributes and the
- * matching cell info, so the shader and the JS mirror of it (debug labels) stay in sync. */
+// writes the extra spread into the attributes and the cell info (debug labels read it)
 export function setSpreadExtra(
   fracture: FractureResult,
   extra: Record<number, number>,
@@ -467,13 +447,12 @@ export function setSpreadExtra(
   attrFull.needsUpdate = true;
 }
 
-/** 0 at the preview spread, 1 at the full one. Mirrors stone.vert.glsl's `expand`. */
+// 0 at preview spread, 1 at full. Same as `expand` in stone.vert.glsl
 export function spreadExpand(spread: number, preview: number, full: number): number {
   return Math.min(1, Math.max(0, (spread - preview) / Math.max(1e-4, full - preview)));
 }
 
-/** Copies each cell's outward direction (e.g. re-aimed by photoOcclusion.ts on the coarse
- * fracture) onto another build of the same cells, attribute included. */
+// copy the (maybe re-aimed) directions from the coarse build to the detailed one
 export function copyOutDirs(from: FractureResult, to: FractureResult): void {
   const attr = to.geometry.getAttribute("aOutDir") as THREE.BufferAttribute;
   to.cells.forEach((cell, i) => {

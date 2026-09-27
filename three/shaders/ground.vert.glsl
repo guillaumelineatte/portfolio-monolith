@@ -1,11 +1,11 @@
-// Displaces the ground mesh into the sea of clouds (shape in chunks/cloudsea.glsl).
+// sea of clouds shape (chunks/cloudsea.glsl)
 varying vec3 vWorld;
 varying vec3 vNormal;
-varying float vMass; // normalized height within the cloud (0 gap, ~1 top of a mass)
+varying float vMass; // 0 in a gap, ~1 on top of a mass
 
 void main(){
   vec4 w = modelMatrix * vec4(position, 1.0);
-  // Wide step: the mesh is coarse far away, a small step would shade its facets.
+  // big step, the mesh is coarse far away
   const float e = 0.6;
   float h = seaSurfaceY(w.xz, 3);
   float hx = seaSurfaceY(w.xz + vec2(e, 0.0), 3);

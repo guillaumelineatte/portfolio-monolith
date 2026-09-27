@@ -3,13 +3,10 @@ import gsap from "gsap";
 import { ROUTE_MOVE_DURATION, RETURN_HOME_DURATION } from "@/lib/timing";
 import { OPEN, fragEase, staggerLocal, WAVE } from "./stoneMotion";
 
-/**
- * Open/close/crossfade for the stone. Monolith.tsx registers its uniforms and the photo mesh,
- * HomeView and RouteTransitionProvider call these.
- */
+// Open / close / crossfade for the stone. Monolith registers its uniforms, HomeView and
+// RouteTransitionProvider call these.
 
-// How far the fragments move out when open, object space (stone radius is 0.85).
-// Preview for home hover / mobile, full once a project page is open.
+// How far the fragments move out (stone radius is 0.85). Preview = home hover, full = project page.
 export const SPREAD_PREVIEW = 0.5;
 export const SPREAD_FULL = 1.15;
 
@@ -34,16 +31,14 @@ let stoneU: StoneUniforms | null = null;
 let photoU: PhotoUniforms | null = null;
 let photoMesh: THREE.Object3D | null = null;
 let currentIdx = -1;
-// Spread the stone is open at (or heading to), -1 when closed/closing. Lets a repeated openStone
-// with the same target be a no-op: the project page calls it on click AND when its visual
-// reveals, the second call must not restart the burst halfway through.
+// Current target spread, -1 when closed. The project page calls openStone twice (on click and
+// when the visual shows up), the second call must not restart the burst.
 let spreadTarget = -1;
 let waveTl: gsap.core.Timeline | null = null;
 
-// The cracks flare as the preview -> full burst starts, then settle back. (A pull-in before the
-// burst was tried: it stops dead before flying out and read as a stutter.)
+// crack flare when the burst starts
 const BURST_CRACK_PEAK = 1.8;
-// Fragment the JS-side uSpread mirror follows during the wave (middle of the stagger).
+// uSpread follows this fragment during the wave (middle of the stagger)
 const WAVE_MIRROR_DELAY = 0.375;
 
 export function registerStone(
@@ -78,19 +73,15 @@ interface SpreadTiming {
   ease: string;
 }
 
-/** Spread changes other than the burst: pulling back in (full -> preview when going back home,
- * same duration as that camera move) and the reduced-motion/edge cases. inOut so fragments ease
- * into motion instead of jerking (and expo.out on the way back in looked like a snap). */
+// Spread changes other than the burst (mostly pulling back in when going home).
 function spreadTiming(retreating: boolean): SpreadTiming {
   return retreating
     ? { duration: RETURN_HOME_DURATION, ease: "power2.inOut" }
     : { duration: ROUTE_MOVE_DURATION, ease: "power2.inOut" };
 }
 
-/** Stops a running burst wave without a jolt: dropping uWaveOn straight to 0 made every fragment
- * jump from its own place in the stagger to the shared uSpread (up to ~0.4 in one frame, e.g.
- * going back home mid-burst), and freezing the wave stopped them dead. So the wave keeps running
- * at its own pace (just no longer driving uSpread) while it fades out under whatever takes over. */
+// Stops the burst without a jump: the wave keeps going on its own and fades out.
+// Cutting it (or freezing it) made the fragments jump or stop dead.
 function cancelWave(): void {
   if (!stoneU) return;
   const u = stoneU;
@@ -105,9 +96,8 @@ function cancelWave(): void {
   if (u.uWaveOn.value > 0) gsap.to(u.uWaveOn, { value: 0, duration: 1.2, ease: "sine.inOut" });
 }
 
-/** Preview -> full on opening a project: every fragment flies out on its own staggered curve
- * (stone.vert.glsl's wave, inner ones first) while the cracks flare. Lasts exactly as long as the
- * camera move, so the click reads as one gesture. uWaveT is linear, the easing is per fragment. */
+// Preview -> full when a project opens. Fragments go out one after the other (inner ones first),
+// same duration as the camera move so it all feels like one motion.
 function burstTo(target: number): void {
   if (!stoneU) return;
   const u = stoneU;
@@ -126,8 +116,7 @@ function burstTo(target: number): void {
     duration: ROUTE_MOVE_DURATION,
     ease: "none",
     onUpdate() {
-      // JS-side reads of uSpread (closeStone's fromFull, retreat direction) follow the middle
-      // fragment of the stagger.
+      // keep uSpread roughly in sync, closeStone and the retreat read it
       u.uSpread.value = from + (target - from) * fragEase(staggerLocal(u.uWaveT.value, WAVE_MIRROR_DELAY, WAVE.stagger));
     },
     onComplete() {
@@ -154,15 +143,13 @@ function driveSpread(target: number, reducedMotion: boolean, timing: SpreadTimin
   gsap.to(stoneU.uSpread, { value: target, ...timing });
 }
 
-/** uOpen -> 1 at a constant rate (full open = OPEN.duration). */
+// uOpen -> 1 at a constant speed
 function openLinear(): void {
   if (!stoneU) return;
   gsap.to(stoneU.uOpen, { value: 1, duration: (1 - stoneU.uOpen.value) * OPEN.duration, ease: "none" });
 }
 
-/** Kills any close still running and holds the stone open. Otherwise hovering mid-close only
- * changed uSpread and the stone kept closing. uOpen resumes linearly at the normal opening pace
- * from wherever it is (the per-fragment curve in the shader does the easing). */
+// Cancels a close in progress and keeps the stone open (hovering mid-close used to do nothing).
 function holdOpen(reducedMotion: boolean): void {
   if (!stoneU || !photoU) return;
   gsap.killTweensOf(stoneU.uOpen);
@@ -179,15 +166,13 @@ function holdOpen(reducedMotion: boolean): void {
   if (photoU.uReveal.value < 0.98) gsap.to(photoU.uReveal, { value: 1, duration: 1.6, ease: "power2.out" });
 }
 
-/** Opens the stone on project `index` with `texture` inside. If it's already open on another
- * project it crossfades without closing. `expanded` uses SPREAD_FULL (project page) instead
- * of SPREAD_PREVIEW (hover). */
+// Opens the stone with the project's photo inside. Already open on another project: just
+// crossfades. `expanded` = project page (full spread).
 export function openStone(texture: THREE.Texture, index: number, reducedMotion: boolean, expanded = false): void {
   if (!stoneU || !photoU) return;
   const target = expanded ? SPREAD_FULL : SPREAD_PREVIEW;
-  // spreadTarget > 0 also covers a stone still early in its opening (uOpen < 0.5, e.g. a click
-  // right after the hover started), which used to fall through to the closed path below and
-  // snap uSpread straight to the target.
+  // spreadTarget > 0 catches a click right after the hover started (uOpen still low), otherwise
+  // it went through the closed path and uSpread snapped
   const alreadyOpen = spreadTarget > 0 || stoneU.uOpen.value > 0.5 || (reducedMotion && photoU.uReveal.value > 0.5);
 
   if (alreadyOpen) {
@@ -196,8 +181,7 @@ export function openStone(texture: THREE.Texture, index: number, reducedMotion: 
       currentIdx = index;
       crossfadePhoto(texture);
     }
-    // Already open at / heading to this spread (project -> project, repeated calls): the photo
-    // crossfade above is all that changes.
+    // already there (project -> project): only the photo changes
     if (target === spreadTarget) return;
     spreadTarget = target;
 
@@ -230,14 +214,14 @@ export function openStone(texture: THREE.Texture, index: number, reducedMotion: 
   }
 
   if (reducedMotion) {
-    stoneU.uOpen.value = 0; // fragments never displace
+    stoneU.uOpen.value = 0; // no movement with reduced motion
     gsap.to(stoneU.uCrack, { value: 1, duration: 0.4, ease: "power1.out" });
     gsap.to(photoU.uReveal, { value: 1, duration: 0.6, ease: "power1.out", delay: 0.1 });
     if (photoMesh) gsap.to(photoMesh.scale, { x: 1, y: 1, z: 1, duration: 0.6, ease: "power1.out" });
     return;
   }
 
-  // Same timings as closeStone (non-fromFull), so open and close are the same motion reversed.
+  // same timings as the hover close
   gsap.to(stoneU.uCrack, { value: 1, duration: 1.6, ease: "power2.out" });
   openLinear();
   gsap.to(photoU.uReveal, { value: 1, duration: 1.6, ease: "expo.out", delay: 0.3 });
@@ -249,12 +233,10 @@ export function openStone(texture: THREE.Texture, index: number, reducedMotion: 
 
 export function closeStone(reducedMotion: boolean): void {
   if (!stoneU || !photoU) return;
-  // Closing from a project's full spread: same slow motion as the driveSpread retreat, not
-  // the quick hover close.
+  // coming back from a project page: slow close, like the retreat
   const fromFull = stoneU.uSpread.value > (SPREAD_PREVIEW + SPREAD_FULL) / 2;
-  // uReveal uses the same duration, otherwise the photo faded out before the fragments closed
-  // and the stone looked empty. uOpen is linear (easing is per fragment, stoneMotion.ts): from a
-  // hover it closes at the opening's pace, from a project page it matches the camera move back.
+  // Photo fades out over the same time, otherwise it disappears first and the stone looks
+  // empty. From a project page it matches the camera move back.
   const openDuration = (fromFull ? RETURN_HOME_DURATION : OPEN.duration) * stoneU.uOpen.value;
   currentIdx = -1;
   spreadTarget = -1;

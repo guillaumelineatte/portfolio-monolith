@@ -2,10 +2,7 @@ import * as THREE from "three";
 import type { Project } from "@/content/types";
 import { drawVisual } from "@/lib/visual";
 
-/**
- * Built with new THREE.Texture() rather than TextureLoader, which defaults to SRGBColorSpace.
- * A bare Texture is NoColorSpace, like the prototype's CanvasTexture. See PostProcess.tsx.
- */
+// new THREE.Texture() instead of TextureLoader, which would set SRGBColorSpace and shift colors.
 
 const cache = new Map<number, THREE.Texture>();
 
@@ -19,7 +16,7 @@ function fallbackTexture(project: Project, index: number): THREE.Texture {
   return tex;
 }
 
-/** Synchronous, always returns a usable texture (the canvas fallback until/unless a real photo loads). */
+// always returns something (canvas fallback until the photo loads)
 export function getProjectTexture(project: Project, index: number): THREE.Texture {
   const existing = cache.get(index);
   if (existing) return existing;
@@ -28,12 +25,9 @@ export function getProjectTexture(project: Project, index: number): THREE.Textur
   return tex;
 }
 
-/**
- * Preloads a project's photo and swaps it into the cached texture. Always resolves (with a
- * timeout) so the loader can count it.
- */
+// Loads a project photo and swaps it in. Always resolves (timeout) so the loader can count it.
 export function preloadProjectTexture(project: Project, index: number, timeoutMs = 2500): Promise<void> {
-  getProjectTexture(project, index); // ensure a fallback exists immediately
+  getProjectTexture(project, index); // make sure there's a fallback
   if (!project.image) return Promise.resolve();
 
   return new Promise((resolve) => {

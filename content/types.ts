@@ -9,12 +9,12 @@ export interface Project {
   year: string;
   role: string;
   client: string;
-  /** Hex color used for the light and the home/project hover accents. */
+  // light color + hover accent
   color: string;
-  /** Procedural fallback recipe (see lib/visual.ts) used until a real image is supplied. */
+  // placeholder style until there's a photo (lib/visual.ts)
   visual: "waves" | "orb" | "rings" | "arches" | "strata" | "grid";
   text: string;
-  /** Photo in public/work/. Optional until the real ones are in, the procedural visual is used meanwhile. */
+  // photo in public/work/, optional for now
   image?: string;
 }
 

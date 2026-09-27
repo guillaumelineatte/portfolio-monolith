@@ -19,7 +19,7 @@ export function Sky() {
         fragmentShader: FS_SKY,
         side: THREE.BackSide,
         depthWrite: false,
-        // Fewer cloud octaves and no self-shadow sample on low-end (sky.frag.glsl).
+        // lighter clouds on mobile
         defines: low ? { LOW_QUALITY: "" } : {},
       }),
     [low]

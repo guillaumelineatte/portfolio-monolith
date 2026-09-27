@@ -1,7 +1,5 @@
 vec3 mistTint(){ return mix(vec3(0.42, 0.27, 0.27), uLightColor * 0.8, 0.22) * 0.5 * (0.3 + 0.7 * uIntensity); }
-// Haze colour by viewing direction, like real dusk in-scattering: warm and bright toward the sun
-// (forward scattering), a cooler violet-grey everywhere else. Replaces a single pink tint that
-// washed stone, hills and ground into the same colour.
+// haze color: warm toward the sun, cooler grey-violet elsewhere
 vec3 mistTintDir(vec3 dir){
   float toSun = pow(max(dot(dir, uSunDir), 0.0), 3.0);
   vec3 cool = vec3(0.31, 0.27, 0.36);

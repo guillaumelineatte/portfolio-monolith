@@ -12,11 +12,8 @@ import { lightTarget } from "./postApi";
 const L = new THREE.Vector3();
 const HALO_BASE = new THREE.Vector3(0, 2.3, 0);
 
-/**
- * Priority 3, after CameraRig and Monolith (which updates stoneInv), before the post pass.
- * Keeps the light behind the stone and sweeps it with scroll, damps uLightColor to
- * lightTarget, moves halo/mist and updates the stone's object-space camera/light uniforms.
- */
+// Priority 3, after CameraRig and Monolith. Light behind the stone (moves with scroll), light
+// color, halo and mist positions, camera/light uniforms for the stone.
 export function LightRig() {
   const sp = useRef(0.5);
 

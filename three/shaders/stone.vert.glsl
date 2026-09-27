@@ -2,11 +2,9 @@ uniform float uOpen;
 uniform float uDrift;
 uniform float uTime;
 uniform float uSpread;
-uniform vec2 uSpreadRange; // (SPREAD_PREVIEW, SPREAD_FULL)
-// Preview -> full burst (stoneCrack.ts burstTo): while uWaveOn is 1 each fragment follows its own
-// staggered curve from uWaveFrom to uWaveTo instead of the shared uSpread.
-// OPEN_*/WAVE_*/STAGGER_* defines and the curves come from three/stoneMotion.ts, which mirrors
-// this math in JS.
+uniform vec2 uSpreadRange; // preview, full
+// Burst when a project opens: while uWaveOn is 1 each fragment follows its own delayed curve
+// instead of uSpread. Defines and curves come from stoneMotion.ts.
 uniform float uWaveOn;
 uniform float uWaveFrom;
 uniform float uWaveTo;
@@ -41,7 +39,7 @@ mat3 rotationMatrix(vec3 axis, float angle){
   );
 }
 
-// Zero speed at both ends, fast early, long gentle settle (see stoneMotion.ts fragEase).
+// soft start and stop (fragEase in stoneMotion.ts)
 float fragEase(float x){
   float y = 1.0 - x;
   return 1.0 - y * y * y * (1.0 + 3.0 * x);
@@ -52,8 +50,7 @@ float staggerLocal(float t, float stagger){
 }
 
 void main(){
-  // vObj stays at the rest position. The raymarch uses it, so the interior stays continuous
-  // across fragments.
+  // rest position, so the raymarched interior stays continuous across fragments
   vObj = position;
   vBoundsMin = aBoundsMin;
   vBoundsMax = aBoundsMax;
@@ -64,8 +61,7 @@ void main(){
 
   float wave = mix(uWaveFrom, uWaveTo, fragEase(staggerLocal(uWaveT, WAVE_STAGGER)));
   float baseSpread = mix(uSpread, wave, uWaveOn);
-  // How far this fragment is from the preview spread toward the full one. Drives the full-only
-  // extra push and a bit more rotation, so pieces tumble a little as they fly out.
+  // 0 at preview spread, 1 at full: extra push and a bit more rotation
   float expand = clamp((baseSpread - uSpreadRange.x) / max(1e-4, uSpreadRange.y - uSpreadRange.x), 0.0, 1.0);
 
   float angle = length(aRotAxis) * eased * (1.0 + WAVE_ROT_BOOST * expand);
@@ -79,7 +75,7 @@ void main(){
   float driftPhase = aDelay * 41.0 + uTime * 0.6;
   vec3 drift = aOutDir * sin(driftPhase) * 0.012 * uDrift * eased;
 
-  // aSpreadExtraFull rides `expand`, so it follows the same motion (wave or retreat) as the rest.
+  // aSpreadExtraFull follows `expand` so it moves with the rest
   float spread = baseSpread + aSpreadExtra + aSpreadExtraFull * expand;
   vec3 displaced = aPivot + rotatedOffset + aOutDir * (spread * eased) + drift;
 

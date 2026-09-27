@@ -6,7 +6,7 @@ import { frameState } from "@/lib/store";
 
 const EO = "expo.out";
 
-/** Light target color, LightRig damps toward it every frame. */
+// LightRig eases toward this color
 export const lightTarget = new THREE.Color(1, 0.6, 0.35);
 
 export function setLight(hex: string): void {
@@ -61,10 +61,7 @@ export function setImageReducedMotion(reducedMotion: boolean): void {
   reducedMotionFlag = reducedMotion;
 }
 
-/**
- * Reveal anchored to a DOM element (project page visual). The home hover uses the stone
- * crack instead (three/stoneCrack.ts).
- */
+// image reveal on a DOM element (project page)
 export function showDomImage(el: HTMLElement, texture: THREE.Texture, index: number): void {
   if (!imgUniforms) return;
   const I = frameState.img;

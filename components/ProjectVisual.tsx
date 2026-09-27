@@ -3,12 +3,8 @@
 import type { Project } from "@/content/types";
 import { useSceneStore } from "@/lib/store";
 
-/**
- * Always renders a real <img>. With WebGL on it's hidden (opacity 0) because the reveal
- * shader draws the image at this element's rect (see revealGroup in lib/text-reveal.ts).
- *
- * TODO: switch to <picture> with avif/webp/jpg once the real photos are in public/work/.
- */
+// Real <img>, hidden when WebGL is on (the shader draws the image over this element).
+// TODO: <picture> with avif/webp/jpg once the photos are in public/work/.
 export function ProjectVisual({ project }: { project: Project }) {
   const hasWebGL = useSceneStore((s) => s.hasWebGL);
   return (

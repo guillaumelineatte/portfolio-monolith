@@ -1,13 +1,10 @@
 varying vec3 vDir;
 
-// Visible sky only (not skyColor(), which the stone's reflection, the ridges and the haze also
-// use): a volumetric-looking cloud layer and faint stars.
+// Sky dome only (skyColor() is also used for reflections and haze, don't touch it for this).
 //
-// Clouds: the view ray is intersected with a flat layer at CLOUD_ALT, so cells shrink and pile up
-// toward the horizon like a real deck. Shape = domain-warped fbm stretched along the wind,
-// thresholded by CLOUD_COVER. Light = low sun from the side (warm undersides, forward-scattering
-// silver lining toward it, self-shadowing from a second density sample shifted sunward) plus
-// cooler sky light on top; far clouds dissolve into the horizon haze.
+// Clouds on a flat layer at CLOUD_ALT so they get smaller toward the horizon. Warped noise
+// stretched with the wind. Lit by the low sun (warm undersides, bright edges toward it, some
+// self-shadowing) and the sky. Far ones fade into the horizon.
 #define CLOUD_ALT 1.0
 #define CLOUD_SCALE 0.55
 #define CLOUD_COVER 0.52
@@ -16,7 +13,7 @@ varying vec3 vDir;
 #define CLOUD_SUN 1.35
 #define CLOUD_SKY 0.9
 #define CLOUD_HORIZON_FADE 0.045
-// Edge sharpness, and how much fine noise eats into the thin edges.
+// edge sharpness, how ragged the edges are
 #define CLOUD_CONTRAST 2.6
 #define CLOUD_EROSION 0.7
 #define STAR_AMOUNT 0.7
@@ -39,14 +36,12 @@ float fbm(vec3 p, int octaves){
   return s;
 }
 
-// Coverage-thresholded density, 0..1. `q` is the position on the cloud layer.
+// density 0..1, q = position on the layer
 float cloudDensity(vec2 q, float t, int octaves){
   vec2 warp = vec2(snoise(vec3(q * 0.35, t * 0.3)), snoise(vec3(q * 0.35 + 7.3, t * 0.3 + 2.1)));
   float n = fbm(vec3(q + warp * 0.6, t), octaves) * 0.5 + 0.5;
   float dens = clamp((n - (1.0 - CLOUD_COVER)) / CLOUD_COVER * CLOUD_CONTRAST, 0.0, 1.0);
-  // Erode the thin edges with fine noise: wispy, broken borders instead of cotton-soft blobs.
-  // Kept on low-end too (one noise): without it the portrait camera's big overhead clouds read
-  // as smoke. Skipped for the self-shadow sample.
+  // ragged edges (kept on mobile, the big clouds up top looked like smoke without it)
   if (octaves > 3) {
     float fine = snoise(vec3(q * 7.0, t * 2.0)) * 0.5 + 0.5;
     dens = clamp(dens - (1.0 - dens) * fine * CLOUD_EROSION, 0.0, 1.0);
@@ -66,11 +61,11 @@ void main(){
   float cloudA = 0.0;
 
   if (d.y > 0.0) {
-    // Distance along the ray to the layer; a small floor keeps the horizon from blowing up.
+    // distance to the layer (floor so it doesn't blow up at the horizon)
     float tRay = CLOUD_ALT / (d.y + 0.035);
     vec2 wind = normalize(vec2(0.8, 0.6));
     vec2 q = d.xz * tRay * CLOUD_SCALE;
-    // Stretch along the wind (stratiform decks), drift with it, evolve slowly.
+    // stretched with the wind, drifting
     q = vec2(dot(q, wind) * 0.55, dot(q, vec2(-wind.y, wind.x)));
     q.x -= uTime * CLOUD_SPEED * 6.0;
     float t = uTime * CLOUD_SPEED * 0.4;
@@ -81,7 +76,7 @@ void main(){
 #ifdef LOW_QUALITY
       float shade = 1.0 - dens * 0.5;
 #else
-      // Self-shadowing: how much cloud lies between this point and the sun.
+      // how much cloud is between here and the sun
       float densL = cloudDensity(q + sunQ * 0.18, t, 3);
       float shade = exp(-densL * 2.6);
 #endif
@@ -90,13 +85,13 @@ void main(){
       vec3 sunCol = uLightColor * mix(vec3(1.0), vec3(1.15, 0.85, 0.7), 0.5);
       vec3 skyTop = skyColor(vec3(0.0, 0.6, -0.8));
       vec3 skyLow = skyColor(normalize(vec3(d.x, 0.04, d.z)));
-      // Thin edges let the sun through (silver lining), thick cores go dark and take the sky tint.
+      // thin parts let the sun through, thick parts go darker
       float thin = 1.0 - dens;
       vec3 lit = sunCol * shade * phase * (0.45 + 0.8 * thin) * CLOUD_SUN;
-      // Dense cores: the sky light barely gets in either (darker, cooler bellies).
+
       vec3 amb = mix(skyLow, skyTop, 0.5) * CLOUD_SKY * (0.35 + 0.65 * thin);
       vec3 cloudCol = (lit + amb) * (0.22 + 0.78 * uIntensity);
-      // Far clouds dissolve into the horizon haze.
+      // fade into the horizon
       float haze = 1.0 - exp(-tRay * CLOUD_HORIZON_FADE);
       cloudCol = mix(cloudCol, col, haze);
       cloudA = (1.0 - exp(-dens * CLOUD_DENSITY)) * (1.0 - haze * 0.6) * smoothstep(0.0, 0.03, d.y);
@@ -104,8 +99,7 @@ void main(){
     }
   }
 
-  // Stars: one candidate per small cell in (azimuth, elevation), round dot, gentle twinkle,
-  // only where the sky is already dark, hidden by clouds.
+  // stars, only where the sky is dark enough, hidden by clouds
   vec2 sc = vec2(atan(d.z, d.x), asin(clamp(d.y, -1.0, 1.0))) * 260.0;
   float h = hash12(floor(sc));
   float dotShape = smoothstep(0.32, 0.0, length(fract(sc) - 0.5));

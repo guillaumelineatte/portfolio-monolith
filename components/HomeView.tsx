@@ -52,8 +52,7 @@ export function HomeView() {
     }
 
     let hoverTimer: ReturnType<typeof setTimeout> | undefined;
-    // Ignore mouseleave until settleUntil. Right after the mount handoff below the browser can
-    // fire a bogus mouseleave while the DOM settles, which would close the stone for nothing.
+    // ignore mouseleave for a bit after mount, the browser fires a fake one
     let settleUntil = 0;
     const enter = (i: number) => {
       clearTimeout(hoverTimer);
@@ -87,10 +86,8 @@ export function HomeView() {
         a.removeEventListener("blur", onLeave);
       });
     });
-    // Coming back from a project the cursor is often still on the clicked item, but swapping
-    // the DOM under a still cursor doesn't fire mouseenter. So check the last pointer position
-    // (usePointer keeps it across routes) against the list right away. RouteTransitionProvider
-    // doesn't close the stone on the way back, so this goes full -> preview spread smoothly.
+    // Coming back from a project the cursor is often still on the item, but no mouseenter fires.
+    // So check the last pointer position right away.
     const el = document.elementFromPoint(frameState.pointer.x, frameState.pointer.y);
     const hit = el ? items.findIndex((a) => a.contains(el)) : -1;
     if (hit >= 0) {

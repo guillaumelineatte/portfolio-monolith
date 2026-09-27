@@ -18,8 +18,7 @@ export function Scene() {
   const reducedMotion = useSceneStore((s) => s.reducedMotion);
   const booted = useSceneStore((s) => s.booted);
 
-  // When the loader is done, not on mount. Until then the scene sits at uIntensity 0 behind
-  // the loader.
+  // fade in when the loader is done (it's dark behind the loader until then)
   useEffect(() => {
     if (!booted) return;
     if (reducedMotion) {

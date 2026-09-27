@@ -1,18 +1,12 @@
 import * as THREE from "three";
 import type { FractureResult } from "./fracture";
 
-/**
- * Keeps the fragments out of the revealed photo. Replaces the hand-tuned per-index map, which went
- * stale whenever the camera moved and never matched the low-end 14-cell fracture (different cells
- * behind the same indices).
- *
- * Exact test, no bounding volumes: every triangle of a fragment is put at its fully-open pose (same
- * math as stone.vert.glsl with eased = 1), projected from each camera position onto the photo's
- * billboard plane, and checked against the photo rectangle. Two stages are solved per fragment
- * (home hover at the preview spread, project page at the full spread), each for the smallest
- * ADDITIVE extra push that clears it. A fragment that would need too much (or can't be cleared at
- * all, it travels toward the camera rather than out of the way) is re-aimed sideways instead.
- */
+// Keeps the fragments from covering the photo.
+//
+// Every triangle of a fragment is placed where it ends up fully open, projected from each camera
+// onto the photo plane and tested against the photo rectangle. We look for the smallest extra
+// push that clears it, for the hover and for the project page. If it needs too much (or goes
+// toward the camera), the fragment gets re-aimed sideways.
 
 export interface CameraPose {
   pos: THREE.Vector3Like;
@@ -27,7 +21,7 @@ interface Frame {
   fwd: THREE.Vector3;
   right: THREE.Vector3;
   up: THREE.Vector3;
-  /** Photo center depth and its right/up coordinates, relative to the camera. */
+  // photo center relative to the camera
   depthP: number;
   pr: number;
   pu: number;
@@ -46,7 +40,7 @@ const _v = new THREE.Vector3();
 const tx = [0, 0, 0];
 const ty = [0, 0, 0];
 
-/** Separating-axis test between a 2D triangle and the rect [-hx,hx] x [-hy,hy]. */
+// SAT test, 2D triangle vs rect [-hx,hx] x [-hy,hy]
 function triOverlapsRect(hx: number, hy: number): boolean {
   if (Math.max(tx[0], tx[1], tx[2]) < -hx || Math.min(tx[0], tx[1], tx[2]) > hx) return false;
   if (Math.max(ty[0], ty[1], ty[2]) < -hy || Math.min(ty[0], ty[1], ty[2]) > hy) return false;
@@ -67,7 +61,7 @@ function triOverlapsRect(hx: number, hy: number): boolean {
   return true;
 }
 
-/** True if any triangle (world positions, flat xyz triplets) covers part of the photo from `f`. */
+// does any triangle cover part of the photo from this camera
 function coversPhoto(world: Float32Array, f: Frame, hx: number, hy: number): boolean {
   for (let t = 0; t < world.length; t += 9) {
     let inFront = false;
@@ -89,8 +83,7 @@ function coversPhoto(world: Float32Array, f: Frame, hx: number, hy: number): boo
   return false;
 }
 
-/** A cell's fully-open triangles (rest pose + open rotation about its pivot) in world space,
- * before any outward translation, plus their centroid. */
+// a cell's triangles fully open (rotated, not pushed out yet) in world space + centroid
 function openPoseWorld(fracture: FractureResult, cellIndex: number, stoneMatrix: THREE.Matrix4, rotScale = 1) {
   const cell = fracture.cells[cellIndex];
   const pos = fracture.geometry.getAttribute("position");
@@ -114,8 +107,7 @@ function openPoseWorld(fracture: FractureResult, cellIndex: number, stoneMatrix:
   return { base, centroid };
 }
 
-/** Smallest extra (in `step` increments) that clears the photo from every frame, or null if
- * nothing up to `maxExtra` does (the fragment travels toward the camera, not out of its way). */
+// smallest extra push that clears the photo, null if nothing up to maxExtra works
 function extraForCell(
   fracture: FractureResult,
   cellIndex: number,
@@ -144,11 +136,8 @@ function extraForCell(
   return extra > maxExtra ? null : Math.round(extra * 100) / 100;
 }
 
-/**
- * Re-aims a fragment's outward direction so it slides sideways out of the photo instead of
- * toward the camera: the part of (centroid - photo) perpendicular to the camera axis, i.e. straight
- * away from the photo on screen. Rewrites both the cell info and its aOutDir attribute.
- */
+// Re-aims a fragment so it slides away from the photo on screen instead of toward the camera.
+// Updates the cell info and aOutDir.
 function deflectSideways(
   fracture: FractureResult,
   cellIndex: number,
@@ -162,7 +151,7 @@ function deflectSideways(
   const side = centroid.sub(photoCenter);
   side.addScaledVector(viewAxis, -side.dot(viewAxis));
   if (side.lengthSq() < 1e-6) {
-    // Dead center: fall back to its own direction minus the camera-facing part.
+    // right in the middle: use its own direction minus the part facing the camera
     side.copy(cell.outDir).transformDirection(stoneMatrix);
     side.addScaledVector(viewAxis, -side.dot(viewAxis));
   }
@@ -179,7 +168,7 @@ function deflectSideways(
 export interface ClearanceStage {
   poses: CameraPose[];
   spread: number;
-  /** Open-rotation multiplier at this stage (stone.vert.glsl's 1 + WAVE_ROT_BOOST * expand). */
+  // rotation multiplier at this stage
   rotScale?: number;
 }
 
@@ -188,30 +177,25 @@ export interface ClearanceParams {
   stoneMatrix: THREE.Matrix4;
   photoCenter: THREE.Vector3;
   photoHalf: THREE.Vector2;
-  /** Home hover (SPREAD_PREVIEW, home camera) and project page (SPREAD_FULL, project camera). */
+  // hover (home camera) and project page (project camera)
   preview: ClearanceStage;
   full: ClearanceStage;
   step?: number;
   maxExtra?: number;
-  /** Past this much extra push, re-aim sideways instead: a fragment flying that much further than
-   * its neighbours reads as a glitch. */
+  // above this, re-aim sideways instead (looks like a glitch otherwise)
   deflectAbove?: number;
 }
 
 export interface ClearanceResult {
-  /** Always applied (aSpreadExtra): clears the photo at the preview stage. */
+  // always applied
   extra: Record<number, number>;
-  /** Added on top once fully open (aSpreadExtraFull), only what the full stage needs beyond
-   * `extra`, never negative so no fragment moves back in between hover and project page. */
+  // added on the project page only, never negative (nothing moves back in)
   extraFull: Record<number, number>;
-  /** Cells no reasonable push could clear, re-aimed sideways by deflectSideways(). */
+  // cells that got re-aimed
   deflected: number[];
 }
 
-/**
- * Per fragment: find the push each stage needs; if one can't be cleared at all, re-aim the
- * fragment sideways (mutates the fracture's aOutDir) and search again.
- */
+// For each fragment: find the push needed at each stage, re-aim it if needed and try again.
 export function solveFragmentClearance(params: ClearanceParams): ClearanceResult {
   const { fracture, stoneMatrix, photoCenter, photoHalf, preview, full, step = 0.05, maxExtra = 3 } = params;
   const deflectAbove = params.deflectAbove ?? maxExtra;

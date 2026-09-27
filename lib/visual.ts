@@ -1,9 +1,6 @@
 import type { Project } from "@/content/types";
 
-/**
- * Procedural placeholder visual (prototype's drawVisual()), only used when a project's photo
- * fails to load. See three/textures.ts.
- */
+// Generated placeholder, used when there's no photo for a project.
 
 function mulberry32(a: number) {
   return function () {
@@ -192,13 +189,8 @@ export function drawVisual(p: Project, i: number): HTMLCanvasElement {
   return c;
 }
 
-/**
- * Small card overlay (tag, title, client) so the placeholder looks like a slot waiting for a
- * photo, not random noise.
- *
- * Keep it in the middle band (~H*0.3-0.7): project pages crop this 480x600 canvas to 16:10,
- * anything near the top or bottom gets cut there.
- */
+// Little card (tag, title, client) so it looks like a photo slot, not noise. Keep it in the
+// middle, project pages crop the canvas to 16:10.
 function drawTemplateOverlay(x: CanvasRenderingContext2D, p: Project, W: number, H: number): void {
   const midY = H * 0.5;
   const font = (weight: number, size: number) => `${weight} ${size}px Inter, "Helvetica Neue", Arial, sans-serif`;

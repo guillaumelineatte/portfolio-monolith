@@ -3,16 +3,14 @@ uniform sampler2D uImgA; uniform sampler2D uImgB; uniform float uImgMix; uniform
 uniform vec2 uImgPos; uniform vec2 uImgSize; uniform vec2 uImgVel; uniform float uRectAspect; uniform float uReduced;
 varying vec2 vUv;
 
-// Depth of field (off on low-end): the background beyond the stone softens progressively, the
-// stone (and the photo, which writes depth) stays sharp. Circle of confusion from linear depth
-// relative to the focus distance (camera -> stone, set every frame by PostProcess).
+// Depth of field (not on mobile). Focus is on the stone, the background gets softer.
 #ifdef DOF
 uniform sampler2D tDepth; uniform float uNear; uniform float uFar; uniform float uFocus;
 #define DOF_TAPS 8
 #define DOF_MAX_PX 3.0
 #define DOF_START 2.0
 #define DOF_FULL 7.0
-// Foreground blur: starts below this share of the focus distance, full at DOF_NEAR_FULL.
+// foreground blur
 #define DOF_NEAR 0.8
 #define DOF_NEAR_FULL 0.35
 #define DOF_NEAR_MAX 0.8
@@ -20,8 +18,7 @@ float linDepth(vec2 uv){
   float d = texture2D(tDepth, uv).r;
   return uNear * uFar / (uFar - d * (uFar - uNear));
 }
-// Behind the stone, and (like a real lens) in front of it too: the near cloud deck below the
-// camera softens instead of showing every billow crisply.
+// blur behind the stone and a bit in front too, like a real lens
 float coc(float z){
   return max(smoothstep(uFocus * DOF_START, uFocus * DOF_FULL, z), smoothstep(uFocus * DOF_NEAR, uFocus * DOF_NEAR_FULL, z) * DOF_NEAR_MAX);
 }
@@ -36,8 +33,7 @@ vec3 dof(vec2 uv, vec3 base){
     float t = (float(i) + 0.5) / float(DOF_TAPS);
     float a = a0 + float(i) * 2.39996;
     vec2 suv = uv + vec2(cos(a), sin(a)) * sqrt(t) * r;
-    // Weighted by the sample's own blur: a sharp foreground (the stone) doesn't bleed its colour
-    // into the soft background around its silhouette.
+    // weighted so the sharp stone doesn't bleed into the blurry background
     float w = coc(linDepth(suv));
     acc += texture2D(tScene, suv).rgb * w;
     wsum += w;
@@ -46,9 +42,8 @@ vec3 dof(vec2 uv, vec3 base){
 }
 #endif
 
-// Single-pass bloom on the HDR scene (before tonemapping): only what's above BLOOM_THRESHOLD
-// (glowing cracks, hot interior, the sun) spills, sampled on a per-pixel-rotated golden spiral
-// (the grain hides the noise). BLOOM_TAPS comes from PostProcess (fewer on low-end).
+// Cheap bloom before tonemapping, only on what's brighter than BLOOM_THRESHOLD (cracks, sun).
+// The grain hides the noise. BLOOM_TAPS is set in PostProcess.
 #ifndef BLOOM_TAPS
 #define BLOOM_TAPS 10
 #endif
@@ -61,7 +56,7 @@ float bright(vec2 uv){
 }
 vec3 bloom(vec2 uv){
   vec2 r = vec2(uRes.y / uRes.x, 1.0) * BLOOM_RADIUS;
-  // Early out for the (large) areas with nothing bright nearby: 4 probes across the radius.
+  // skip it where there's nothing bright around (most of the screen)
   float probe = max(max(bright(uv + vec2(r.x, 0.0) * 0.6), bright(uv - vec2(r.x, 0.0) * 0.6)),
                     max(bright(uv + vec2(0.0, r.y) * 0.6), bright(uv - vec2(0.0, r.y) * 0.6)));
   if (max(probe, bright(uv)) < BLOOM_THRESHOLD) return vec3(0.0);

@@ -6,12 +6,8 @@ import { VS_RIDGE, FS_RIDGE } from "./shaders";
 import { U } from "./uniforms";
 import { useSceneStore } from "@/lib/store";
 
-/**
- * Layered mountain ranges on the horizon, as real terrain strips displaced in ridge.vert.glsl
- * (crest line + slopes with spurs and gullies, lit by the low sun). Static, wide enough to cover
- * every camFor() pose. `top` is where the old flat cards' top edge sat, so the crest line and the
- * framing stay where they were; `span` is how deep each strip runs (front slope ~62% of it).
- */
+// Mountain ranges on the horizon (shape in ridge.vert.glsl). Wide enough for every camera pose.
+// top = crest height, span = depth of the strip.
 const LAYERS = [
   { z: -22, top: 4.4, span: 18, width: 260, seed: 1.7, freq: 0.05, ridgeHeight: 3.2, rough: 3.4, depth: 0.18 },
   { z: -42, top: 6.9, span: 26, width: 340, seed: 5.3, freq: 0.035, ridgeHeight: 4.5, rough: 4.2, depth: 0.48 },
@@ -53,8 +49,7 @@ export function Landscape() {
   return (
     <>
       {LAYERS.map((l, i) => (
-        // Displaced entirely in the vertex shader (world-space output), so the geometry's own
-        // bounds mean nothing: no frustum culling.
+        // everything happens in the vertex shader, the bounds are wrong, so no culling
         <mesh key={i} material={materials[i]} frustumCulled={false}>
           <planeGeometry args={[l.width, l.span, cols, rows]} />
         </mesh>
