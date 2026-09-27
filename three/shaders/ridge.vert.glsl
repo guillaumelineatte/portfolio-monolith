@@ -14,12 +14,14 @@ varying vec3 vNormal;
 varying float vHeight01;
 varying float vGully; // 0 in a gully, 1 on a spur (ambient occlusion in the fragment shader)
 
+// Broad swell plus ridged octaves (1 - |noise|): sharp peaks and saddles like a real range
+// instead of rounded humps.
 float crestNoise(float x){
   float n = snoise(vec3(x * uFreq, uSeed, 0.0));
-  float n2 = snoise(vec3(x * uFreq * 2.6 + 12.3, uSeed + 4.0, 0.0)) * 0.45;
-  float n3 = snoise(vec3(x * uFreq * 9.0 + 3.7, uSeed + 8.0, 0.0)) * 0.12;
+  float r1 = 1.0 - abs(snoise(vec3(x * uFreq * 2.3 + 12.3, uSeed + 4.0, 0.0)));
+  float r2 = 1.0 - abs(snoise(vec3(x * uFreq * 6.1 + 3.7, uSeed + 8.0, 0.0)));
   float n4 = snoise(vec3(x * uFreq * 23.0 - 5.1, uSeed + 11.0, 0.0)) * 0.04;
-  return n + n2 + n3 + n4;
+  return n * 0.75 + (r1 * r1 - 0.45) * 0.7 + (r2 * r2 - 0.45) * 0.2 * r1 + n4;
 }
 // Cross-section: rises from the front edge to the crest (at s = 0.62), then drops more gently.
 float profile(float s){
@@ -51,7 +53,9 @@ void main(){
   float hs = heightAt(x, s + es, crest);
   vec3 tx = vec3(ex, hx - h, 0.0);
   vec3 tz = vec3(0.0, hs - h, -0.6); // +s goes away from the camera (-z)
-  vNormal = normalize(cross(tz, tx));
+  // tx x tz, not tz x tx: the other order points the normal down and into the slope, which lit
+  // the camera-facing faces from a sun that sits behind the ranges (and hid snow and sky fill).
+  vNormal = normalize(cross(tx, tz));
   float zCrest = uZ;
   vec3 wp = vec3(x, h, zCrest - (s - 0.62) * uDepthSpan);
   vWorld = wp;

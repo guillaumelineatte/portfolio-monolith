@@ -49,14 +49,6 @@ float seaAmp(vec2 p){
 }
 float seaSurfaceY(vec2 p, int oct){ return SEA_BASE + seaShape(p, oct) * seaAmp(p); }
 
-// Colour the cloud sea dissolves into far away, and that mountain feet sink into: the horizon
-// sky, lifted and slightly cooled (the top of a cloud deck seen at a grazing angle). Shared so
-// the two meet without a seam.
-vec3 seaHazeColor(vec3 dir){
-  vec3 hor = skyColor(normalize(vec3(dir.x, 0.0, dir.z) + vec3(1e-5)));
-  return hor * vec3(1.05, 1.0, 1.08) + vec3(0.015, 0.012, 0.02) * uIntensity;
-}
-
 // Average colour of the deck itself (what ground.frag.glsl shades up close), for things that
 // sink into it: the mountain feet start from this, not from the pink horizon haze, so there's no
 // seam where they meet the deck.
@@ -64,6 +56,16 @@ vec3 seaDeckTint(vec3 dir){
   vec3 hor = skyColor(normalize(vec3(dir.x, 0.0, dir.z) + vec3(1e-5)));
   vec3 skyTop = vec3(dot(hor, vec3(0.3, 0.5, 0.2))) * vec3(0.82, 0.8, 1.05) + vec3(0.02, 0.02, 0.05);
   return (uLightColor * 0.4 + skyTop * 0.9) * vec3(0.9, 0.88, 0.97) * (0.35 + 0.65 * uIntensity);
+}
+
+// Colour the cloud sea dissolves into far away, and that mountain feet sink into: the horizon
+// sky, lifted and slightly cooled (the top of a cloud deck seen at a grazing angle). Shared so
+// the two meet without a seam.
+vec3 seaHazeColor(vec3 dir){
+  vec3 hor = skyColor(normalize(vec3(dir.x, 0.0, dir.z) + vec3(1e-5)));
+  // Halfway to the deck's own colour: the raw horizon glow is much brighter than the deck and
+  // painted a pale veil between the clouds and the mountains.
+  return mix(hor * vec3(1.0, 0.97, 1.05), seaDeckTint(dir), 0.55);
 }
 
 // Cloud-deck density (0..1) at a point of the deck, soft thresholded like the sky layer. `oct` is

@@ -11,7 +11,7 @@ varying float vMass;
 #define SEA_DENSITY 2.6
 #define SEA_SHADOW_OFF 1.2
 #define SEA_LAYER_GAP 1.8
-#define SEA_HORIZON 0.04
+#define SEA_HORIZON 0.018
 // Distance (m) before the horizon gradient starts: the near deck keeps its full contrast.
 #define SEA_CLEAR 14.0
 // How much a grazed silhouette dissolves into the haze behind it.
