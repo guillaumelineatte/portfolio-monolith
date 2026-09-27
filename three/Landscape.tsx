@@ -16,8 +16,8 @@ const LAYERS = [
 
 export function Landscape() {
   const low = useSceneStore((s) => s.low);
-  const cols = low ? 256 : 384;
-  const rows = low ? 12 : 20;
+  const cols = low ? 256 : 640;
+  const rows = low ? 16 : 40;
 
   const materials = useMemo(
     () =>

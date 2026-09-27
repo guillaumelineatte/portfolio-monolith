@@ -5,12 +5,13 @@ import * as THREE from "three";
 import { VS_GROUND, FS_GROUND } from "./shaders";
 import { useSceneStore } from "@/lib/store";
 import { U } from "./uniforms";
+import { createCloudNoiseTexture } from "./cloudNoise";
 
 const INNER_R = 0.4;
 const OUTER_R = 110;
 
-// Round mesh for the sea of clouds, rings get wider with distance so triangles stay about the
-// same size on screen. A regular grid wasted tons of tiny triangles far away (~3 fps).
+// Round mesh for the top of the clouds, rings get wider with distance so triangles stay about
+// the same size on screen.
 function buildGroundGeometry(rings: number, segs: number): THREE.BufferGeometry {
   const pos: number[] = [0, 0, 0];
   const ringStart = (i: number) => 1 + i * segs;
@@ -41,19 +42,28 @@ function buildGroundGeometry(rings: number, segs: number): THREE.BufferGeometry 
 
 export function Ground() {
   const low = useSceneStore((s) => s.low);
-  const geometry = useMemo(() => (low ? buildGroundGeometry(36, 96) : buildGroundGeometry(48, 144)), [low]);
+  const geometry = useMemo(() => (low ? buildGroundGeometry(24, 80) : buildGroundGeometry(32, 112)), [low]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+
+  // 32^3 is enough (it repeats and gets filtered), and builds in ~150 ms
+  const cloudTex = useMemo(() => createCloudNoiseTexture(32), []);
+  useEffect(() => () => cloudTex.dispose(), [cloudTex]);
 
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: U,
+        uniforms: Object.assign({ uCloudTex: { value: cloudTex } }, U),
         vertexShader: VS_GROUND,
         fragmentShader: FS_GROUND,
+        defines: low ? { LOW_QUALITY: "" } : {},
+        // thin clouds let the mountains show through
+        transparent: true,
+        premultipliedAlpha: true,
+        depthWrite: true,
       }),
-    []
+    [cloudTex, low]
   );
 
-  // moved in the vertex shader, skip culling
-  return <mesh material={material} geometry={geometry} frustumCulled={false} />;
+  // drawn first among the transparent stuff (mist sheets, photo, halo go on top)
+  return <mesh material={material} geometry={geometry} frustumCulled={false} renderOrder={-1} />;
 }

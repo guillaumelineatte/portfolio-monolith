@@ -11,6 +11,7 @@ varying vec3 vWorld;
 varying vec3 vNormal;
 varying float vHeight01;
 varying float vGully; // 0 in a gully, 1 on a ridge
+varying vec2 vLocal;  // x along the range, metres across it (for the per-pixel relief)
 
 // ridged noise for sharp peaks instead of round bumps
 float crestNoise(float x){
@@ -57,5 +58,6 @@ void main(){
   vWorld = wp;
   vHeight01 = clamp((h - uBase) / max(uTop + uRidgeHeight - uBase, 1e-3), 0.0, 1.0);
   vGully = gullies(x, s);
+  vLocal = vec2(x, s * uDepthSpan);
   gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
 }
