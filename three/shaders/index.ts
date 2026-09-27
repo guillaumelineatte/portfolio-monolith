@@ -33,7 +33,7 @@ export const FS_SKY = PRE + skyFragBody;
 
 export const VS_WORLD = worldVertBody;
 export const FS_GROUND = PRE + chunkCloudSea + groundFragBody;
-export const VS_GROUND = chunkCommon + chunkNoise + chunkCloudSea + groundVertBody;
+export const VS_GROUND = chunkCommon + chunkNoise + chunkSky + chunkCloudSea + groundVertBody;
 
 export const VS_STONE = stoneVertBody;
 export const FS_STONE = PRE + stoneFragBody;
@@ -48,7 +48,7 @@ export const VS_POST = postVertBody;
 export const FS_POST = chunkCommon + chunkNoise + postFragBody;
 
 export const VS_RIDGE = chunkNoise + ridgeVertBody;
-export const FS_RIDGE = PRE + ridgeFragBody;
+export const FS_RIDGE = PRE + chunkCloudSea + ridgeFragBody;
 
 export const VS_PHOTO = photoVertBody;
 export const FS_PHOTO = PRE + photoFragBody;

@@ -12,11 +12,19 @@ uniform sampler2D tDepth; uniform float uNear; uniform float uFar; uniform float
 #define DOF_MAX_PX 5.0
 #define DOF_START 2.0
 #define DOF_FULL 7.0
+// Foreground blur: starts below this share of the focus distance, full at DOF_NEAR_FULL.
+#define DOF_NEAR 0.8
+#define DOF_NEAR_FULL 0.35
+#define DOF_NEAR_MAX 0.8
 float linDepth(vec2 uv){
   float d = texture2D(tDepth, uv).r;
   return uNear * uFar / (uFar - d * (uFar - uNear));
 }
-float coc(float z){ return smoothstep(uFocus * DOF_START, uFocus * DOF_FULL, z); }
+// Behind the stone, and (like a real lens) in front of it too: the near cloud deck below the
+// camera softens instead of showing every billow crisply.
+float coc(float z){
+  return max(smoothstep(uFocus * DOF_START, uFocus * DOF_FULL, z), smoothstep(uFocus * DOF_NEAR, uFocus * DOF_NEAR_FULL, z) * DOF_NEAR_MAX);
+}
 vec3 dof(vec2 uv, vec3 base){
   float c0 = coc(linDepth(uv));
   if (c0 < 0.01) return base;

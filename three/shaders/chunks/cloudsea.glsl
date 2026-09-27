@@ -2,17 +2,15 @@
 // cloud layer anyway). Shared by ground.vert.glsl (shape), ground.frag.glsl (relief, thickness)
 // and card.frag.glsl (the mist sheets fade out where they meet it).
 //
-// Everything here is smooth on purpose: |noise| creases and spherical caps were tried for the
-// cumulus tops and drew lines, arcs and tiles (geometric shapes a cloud never has). The puffs are a
-// Gaussian-ball field instead; volume comes from them plus brightness driven by thickness.
+// The mesh only carries the big masses (parallax, horizon line). The cloud texture itself is a
+// soft density field shaded like the sky clouds, in two layers with parallax (seaDeck below).
+// Surface-bump approaches were tried for the billows (|noise| creases, spherical caps, Gaussian
+// balls): from this low camera they all read as sand, water or geometric shapes. Don't go back.
 #define SEA_BASE -0.2
-#define SEA_NEAR_AMP 0.6
-#define SEA_FAR_AMP 3.2
+#define SEA_NEAR_AMP 0.35
+#define SEA_FAR_AMP 2.4
 #define SEA_SCALE 0.2
 #define SEA_DRIFT 0.06
-// Per-pixel billows: frequency (1 / metres) and height in metres (shading only, never geometry).
-#define SEA_PUFF_SCALE 0.2
-#define SEA_PUFF_HEIGHT 3.0
 
 vec2 seaWind(){ return normalize(vec2(0.8, 0.6)); }
 vec2 seaCoord(vec2 p){ return p * SEA_SCALE - seaWind() * uTime * SEA_DRIFT * SEA_SCALE; }
@@ -27,7 +25,7 @@ float seaMass(vec2 q, float t){
 float seaFbm(vec2 q, float t, int oct){
   float s = 0.0;
   float a = 0.5;
-  for (int i = 0; i < 4; i++){
+  for (int i = 0; i < 5; i++){
     if (i >= oct) break;
     s += a * snoise(vec3(q, t * (1.0 + float(i)) + float(i) * 3.1));
     q = mat2(0.8, -0.6, 0.6, 0.8) * q * 2.03 + vec2(1.7, -2.3);
@@ -51,43 +49,34 @@ float seaAmp(vec2 p){
 }
 float seaSurfaceY(vec2 p, int oct){ return SEA_BASE + seaShape(p, oct) * seaAmp(p); }
 
-// Billows finer than the mesh, 0..1. `warp` is computed once per pixel by the caller (it varies
-// slowly, so the finite-difference samples can share it).
-vec2 seaPuffWarp(vec2 p){
-  vec2 q = (p - seaWind() * uTime * SEA_DRIFT) * SEA_PUFF_SCALE * 0.5;
-  float t = seaTime();
-  return vec2(snoise(vec3(q, 13.0 + t)), snoise(vec3(q + 5.2, 17.0 + t))) * 1.2;
+// Colour the cloud sea dissolves into far away, and that mountain feet sink into: the horizon
+// sky, lifted and slightly cooled (the top of a cloud deck seen at a grazing angle). Shared so
+// the two meet without a seam.
+vec3 seaHazeColor(vec3 dir){
+  vec3 hor = skyColor(normalize(vec3(dir.x, 0.0, dir.z) + vec3(1e-5)));
+  return hor * vec3(1.05, 1.0, 1.08) + vec3(0.015, 0.012, 0.02) * uIntensity;
 }
-vec2 seaHash(vec2 p){
-  p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-  return fract(sin(p) * 43758.5453);
+
+// Average colour of the deck itself (what ground.frag.glsl shades up close), for things that
+// sink into it: the mountain feet start from this, not from the pink horizon haze, so there's no
+// seam where they meet the deck.
+vec3 seaDeckTint(vec3 dir){
+  vec3 hor = skyColor(normalize(vec3(dir.x, 0.0, dir.z) + vec3(1e-5)));
+  vec3 skyTop = vec3(dot(hor, vec3(0.3, 0.5, 0.2))) * vec3(0.82, 0.8, 1.05) + vec3(0.02, 0.02, 0.05);
+  return (uLightColor * 0.4 + skyTop * 0.9) * vec3(0.9, 0.88, 0.97) * (0.35 + 0.65 * uIntensity);
 }
-// Soft puffs: a sum of Gaussian balls of random size, one per jittered cell (a metaball field).
-// Smooth everywhere, so no line, arc or tile can ever show, and it gives the round,
-// cauliflower look of cumulus tops.
-float seaBalls(vec2 q){
-  vec2 i = floor(q);
-  vec2 f = fract(q);
-  float s = 0.0;
-  for (int y = -1; y <= 1; y++){
-    for (int x = -1; x <= 1; x++){
-      vec2 g = vec2(float(x), float(y));
-      vec2 o = seaHash(i + g);
-      vec2 r = g + o - f;
-      float rnd = fract(o.x * 7.3 + o.y * 3.1);
-      float rad = 0.28 + 0.3 * rnd;
-      // Some cells stay empty and weights vary, so puffs cluster irregularly.
-      float wgt = smoothstep(0.15, 0.4, fract(o.y * 5.7 + o.x * 1.3)) * (0.6 + 0.4 * rnd);
-      s += wgt * exp(-dot(r, r) / (rad * rad));
-    }
-  }
-  // Not saturated with 1 - exp(): overlapping balls then flattened the whole field to ~1.
-  return smoothstep(0.05, 1.1, s);
-}
-// Billows finer than the mesh, 0..1: big puffs carrying smaller ones.
-float seaPuffs(vec2 p, vec2 warp, int oct){
-  vec2 q = (p - seaWind() * uTime * SEA_DRIFT) * SEA_PUFF_SCALE + warp;
-  float v = seaBalls(q) * 0.7;
-  if (oct > 1) v += seaBalls(q * 2.6 + vec2(3.3, 1.9)) * 0.3;
-  return v;
+
+// Cloud-deck density (0..1) at a point of the deck, soft thresholded like the sky layer. `oct` is
+// cut with distance so it never shimmers.
+#define SEA_DECK_SCALE 0.14
+#define SEA_DECK_COVER 0.62
+#define SEA_DECK_SOFT 1.5
+float seaDeck(vec2 p, int oct){
+  vec2 wind = seaWind();
+  vec2 q = (p - wind * uTime * SEA_DRIFT) * SEA_DECK_SCALE;
+  q = vec2(dot(q, wind) * 0.75, dot(q, vec2(-wind.y, wind.x)));
+  float t = seaTime() * 2.0;
+  vec2 w = vec2(snoise(vec3(q * 0.35, t)), snoise(vec3(q * 0.35 + 7.3, t + 2.1)));
+  float n = seaFbm(q + w * 0.7, t, oct) * 0.5 + 0.5;
+  return clamp((n - (1.0 - SEA_DECK_COVER)) / SEA_DECK_COVER * SEA_DECK_SOFT, 0.0, 1.0);
 }

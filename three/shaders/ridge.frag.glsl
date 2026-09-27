@@ -65,6 +65,13 @@ void main(){
   float low = 1.0 - vHeight01;
   float hazeAmt = clamp(0.05 + uDepth * 0.8 + low * low * VALLEY_FOG, 0.0, 0.95);
   col = mix(col, haze, hazeAmt);
+  // Feet swallowed by the cloud sea: a deep, uneven gradient from the deck's level up the slopes
+  // (was a straight cut where the terrain met the clouds).
+  float deck = 2.2 + snoise(vec3(vWorld.x * 0.06, vWorld.z * 0.06, 3.0)) * 1.3;
+  float sink = 1.0 - smoothstep(deck - 1.5, deck + 3.5, vWorld.y);
+  // Deck colour at the very bottom, lifting into the horizon haze higher up the slope.
+  vec3 sinkCol = mix(seaHazeColor(dir) * (0.35 + 0.65 * uIntensity), seaDeckTint(dir), smoothstep(0.6, 1.0, sink));
+  col = mix(col, sinkCol, sink * sink * (3.0 - 2.0 * sink));
 
   col = applyMist(col, vWorld, dist);
   gl_FragColor = vec4(col, 1.0);
