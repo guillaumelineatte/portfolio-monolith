@@ -447,11 +447,6 @@ export function setSpreadExtra(
   attrFull.needsUpdate = true;
 }
 
-// 0 at preview spread, 1 at full. Same as `expand` in stone.vert.glsl
-export function spreadExpand(spread: number, preview: number, full: number): number {
-  return Math.min(1, Math.max(0, (spread - preview) / Math.max(1e-4, full - preview)));
-}
-
 // copy the (maybe re-aimed) directions from the coarse build to the detailed one
 export function copyOutDirs(from: FractureResult, to: FractureResult): void {
   const attr = to.geometry.getAttribute("aOutDir") as THREE.BufferAttribute;

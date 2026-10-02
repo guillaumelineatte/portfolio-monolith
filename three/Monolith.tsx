@@ -8,17 +8,13 @@ import { VS_STONE, FS_STONE, VS_PHOTO, FS_PHOTO } from "./shaders";
 import { U } from "./uniforms";
 import { sceneRefs } from "./sceneRefs";
 import { useSceneStore } from "@/lib/store";
-import { buildFractureGeometry, copyOutDirs, setSpreadExtra, spreadExpand, type FractureDetail } from "./fracture";
-import { WAVE, MOTION_DEFINES, fragmentBaseSpread, openEased } from "./stoneMotion";
+import { buildFractureGeometry, copyOutDirs, setSpreadExtra, type FractureDetail } from "./fracture";
+import { WAVE, MOTION_DEFINES, openEased } from "./stoneMotion";
 import { registerStone, SPREAD_PREVIEW, SPREAD_FULL } from "./stoneCrack";
 import { createPlaceholderTexture } from "./placeholderTexture";
 import { solveFragmentClearance, type CameraPose, type ClearanceResult } from "./photoOcclusion";
 import { CAM_JITTER } from "./CameraRig";
 import { camFor } from "@/lib/camera-math";
-
-// Debug: shows each fragment's index on screen. Plain DOM nodes moved by hand every frame
-// (drei <Text> wants to fetch a font and 28 <Html> froze the boot). Turn off when done.
-const DEBUG_FRAGMENT_LABELS = true;
 
 // x === z so it's a round capsule, not a slab. The raymarch only uses uHalf as a rough bound.
 const RADIUS = 0.85;
@@ -99,12 +95,9 @@ const IDLE_BOB_FREQ = 0.22;
 const IDLE_FADE_OUT = 0.9;
 const IDLE_FADE_IN = 2.5;
 
-const labelScratch = new THREE.Vector3();
-
 export function Monolith() {
   const ref = useRef<THREE.Mesh>(null);
   const photoRef = useRef<THREE.Mesh>(null);
-  const labelEls = useRef<HTMLDivElement[]>([]);
   const low = useSceneStore((s) => s.low);
   const booted = useSceneStore((s) => s.booted);
   const reducedMotion = useSceneStore((s) => s.reducedMotion);
@@ -127,7 +120,6 @@ export function Monolith() {
       addExtras(clearance.extra, SPREAD_EXTRA_MANUAL[fractureCount]),
       addExtras(clearance.extraFull, SPREAD_EXTRA_FULL[fractureCount])
     );
-    if (DEBUG_FRAGMENT_LABELS) console.info("[Monolith] photo clearance", clearance);
     return f;
   }, [fractureCount, low]);
 
@@ -177,6 +169,7 @@ export function Monolith() {
       uniforms,
       vertexShader: VS_PHOTO,
       fragmentShader: FS_PHOTO,
+      defines: { PLANE_ASPECT: (PHOTO_SIZE.w / PHOTO_SIZE.h).toFixed(4) },
       transparent: true,
       // writes depth so the depth of field keeps it sharp (transparent pixels are discarded).
       // depthTest has to stay on.
@@ -238,29 +231,8 @@ export function Monolith() {
     gsap.to(mesh.scale, { x: 1, y: 1, z: 1, duration: 2.6, delay: 0.3, ease: "expo.out" });
   }, [booted, reducedMotion]);
 
-  // debug labels
-  useEffect(() => {
-    if (!DEBUG_FRAGMENT_LABELS) return;
-    const container = document.createElement("div");
-    container.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;";
-    document.body.appendChild(container);
-    labelEls.current = fracture.cells.map((_cell, i) => {
-      const el = document.createElement("div");
-      el.textContent = String(i);
-      el.style.cssText =
-        "position:absolute;left:0;top:0;color:#ff3b30;font:700 14px/1 sans-serif;" +
-        "text-shadow:0 0 3px #000,0 0 6px #000;transform:translate(-50%,-50%);";
-      container.appendChild(el);
-      return el;
-    });
-    return () => {
-      container.remove();
-      labelEls.current = [];
-    };
-  }, [fracture]);
-
   // priority 2: after CameraRig, before LightRig (it reads stoneInv)
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     const mesh = ref.current;
     if (!mesh) return;
     const reduced = useSceneStore.getState().reducedMotion;
@@ -283,43 +255,6 @@ export function Monolith() {
     sceneRefs.stoneInv.copy(mesh.matrixWorld).invert();
 
     (material.uniforms.uSteps as { value: number }).value = openAmt > 0.02 ? Math.round(stepsMax * 0.6) : stepsMax;
-
-    // same displacement as the vertex shader, projected by hand
-    if (DEBUG_FRAGMENT_LABELS) {
-      const mu = material.uniforms;
-      const wave = {
-        uSpread: mu.uSpread.value as number,
-        uWaveOn: mu.uWaveOn.value as number,
-        uWaveFrom: mu.uWaveFrom.value as number,
-        uWaveTo: mu.uWaveTo.value as number,
-        uWaveT: mu.uWaveT.value as number,
-      };
-      const drift = mu.uDrift.value as number;
-      const time = U.uTime.value as number;
-      fracture.cells.forEach((cell, i) => {
-        const el = labelEls.current[i];
-        if (!el) return;
-        const spread = fragmentBaseSpread(wave, cell.delay);
-        const expand = spreadExpand(spread, SPREAD_PREVIEW, SPREAD_FULL);
-        const eased = openEased(openAmt, cell.delay);
-        const driftPhase = cell.delay * 41 + time * 0.6;
-        const driftAmt = Math.sin(driftPhase) * 0.012 * drift * eased;
-        labelScratch
-          .copy(cell.outDir)
-          .multiplyScalar((spread + cell.spreadExtra + cell.spreadExtraFull * expand) * eased + driftAmt)
-          .add(cell.pivot);
-        labelScratch.applyMatrix4(mesh.matrixWorld);
-        labelScratch.project(state.camera);
-        if (labelScratch.z > 1) {
-          el.style.display = "none";
-          return;
-        }
-        el.style.display = "block";
-        const x = (labelScratch.x * 0.5 + 0.5) * state.size.width;
-        const y = (1 - (labelScratch.y * 0.5 + 0.5)) * state.size.height;
-        el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
-      });
-    }
   }, 2);
 
   return (

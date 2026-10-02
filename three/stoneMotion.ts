@@ -45,17 +45,3 @@ export function staggerLocal(t: number, delay: number, stagger: number): number 
 export function openEased(uOpen: number, delay: number): number {
   return fragEase(staggerLocal(uOpen, delay, OPEN.stagger));
 }
-
-export interface WaveState {
-  uSpread: number;
-  uWaveOn: number;
-  uWaveFrom: number;
-  uWaveTo: number;
-  uWaveT: number;
-}
-
-// same as `baseSpread` in stone.vert.glsl
-export function fragmentBaseSpread(s: WaveState, delay: number): number {
-  const wave = s.uWaveFrom + (s.uWaveTo - s.uWaveFrom) * fragEase(staggerLocal(s.uWaveT, delay, WAVE.stagger));
-  return s.uSpread + (wave - s.uSpread) * s.uWaveOn;
-}
