@@ -6,6 +6,7 @@
   --ember: #c9764f;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --pad: clamp(1.25rem, 3.1vw, 3rem);
+  --font-title: var(--font-newsreader), Georgia, "Times New Roman", serif;
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -200,11 +201,11 @@ html.is-loading #app {
   padding-top: clamp(0.45rem, 1.35vw, 1.5rem);
 }
 .p-title {
+  font-family: var(--font-title);
   font-size: clamp(2.6rem, 7.1vw, 8.6rem);
   line-height: 0.97;
-  letter-spacing: -0.047em;
+  letter-spacing: -0.02em;
   font-weight: 300;
-  font-variation-settings: "opsz" 32;
 }
 .plist.is-hover .p {
   opacity: 0.14;
@@ -292,11 +293,11 @@ html.is-loading #app {
 }
 .pj-title {
   margin: 0 0 clamp(1rem, 3vh, 2rem);
+  font-family: var(--font-title);
   font-weight: 300;
   font-size: clamp(2.2rem, min(7vw, 9vh), 7rem);
   line-height: 0.95;
-  letter-spacing: -0.052em;
-  font-variation-settings: "opsz" 32;
+  letter-spacing: -0.02em;
   max-width: 9.5em;
 }
 .pj-grid {

@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 // import localFont from "next/font/local";
 
 // Variable axis, same as the prototype's Google Fonts link.
@@ -7,6 +7,15 @@ export const inter = Inter({
   subsets: ["latin"],
   weight: "variable",
   variable: "--font-inter",
+  display: "swap",
+});
+
+// Serif for the project titles, opsz follows the font size.
+export const newsreader = Newsreader({
+  subsets: ["latin"],
+  weight: "variable",
+  axes: ["opsz"],
+  variable: "--font-newsreader",
   display: "swap",
 });
 

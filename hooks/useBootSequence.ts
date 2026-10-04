@@ -8,7 +8,7 @@ import { preloadProjectTexture } from "@/three/textures";
 import { getCompile } from "@/three/postApi";
 import { wait, nextFrame } from "@/lib/timing";
 import { startScroll } from "@/lib/scroll";
-import { inter } from "@/app/fonts";
+import { inter, newsreader } from "@/app/fonts";
 
 // Loader: fonts, visuals, gl, shaders, with a minimum duration. Then removes `is-loading`,
 // starts Lenis and sets `booted`.
@@ -44,6 +44,7 @@ export function useBootSequence(): number {
               document.fonts.load(`300 64px ${family}`),
               document.fonts.load(`200 16px ${family}`),
               document.fonts.load(`400 16px ${family}`),
+              document.fonts.load(`300 64px ${newsreader.style.fontFamily}`),
             ]).then(() => document.fonts.ready),
             wait(3000),
           ]);

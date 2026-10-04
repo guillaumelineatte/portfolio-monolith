@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { inter } from "./fonts";
+import { inter, newsreader } from "./fonts";
 import { CanvasRoot } from "@/components/CanvasRoot";
 import { Header } from "@/components/Header";
 import { Loader } from "@/components/Loader";
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`is-loading ${inter.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`is-loading ${inter.variable} ${newsreader.variable}`} suppressHydrationWarning>
       <body>
         <CanvasRoot />
         <Loader />
