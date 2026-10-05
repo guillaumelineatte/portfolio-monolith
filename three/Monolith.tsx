@@ -27,6 +27,9 @@ export const STONE_HALF = new THREE.Vector3(RADIUS, LENGTH / 2 + RADIUS, RADIUS)
 const BASE_TILT = { x: 0.04, y: 2.4, z: 0.03 };
 
 const PHOTO_SIZE = { w: 1.0, h: 1.25 };
+// drawn a bit bigger so the soft edge fades around PHOTO_SIZE, not inside it.
+// The fragment check still uses PHOTO_SIZE.
+const PHOTO_PLANE_SCALE = 1.25;
 
 // Break shape, see FractureDetail. `rings` is a minimum, fracture.ts adds more where needed.
 // Don't crank it up everywhere: with MSAA it cost ~12 fps for nothing visible.
@@ -268,7 +271,7 @@ export function Monolith() {
       />
       {/* Not a child of the stone so it always faces the camera (LightRig turns it every frame). */}
       <mesh ref={photoRef} position={[0, STONE_HALF.y, 0]} material={photoMaterial} renderOrder={1}>
-        <planeGeometry args={[PHOTO_SIZE.w, PHOTO_SIZE.h]} />
+        <planeGeometry args={[PHOTO_SIZE.w * PHOTO_PLANE_SCALE, PHOTO_SIZE.h * PHOTO_PLANE_SCALE]} />
       </mesh>
     </>
   );
